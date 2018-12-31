@@ -1,0 +1,86 @@
+﻿ETH
+RNG
+HASH
+
++I2C3 - Sens (TH + THP), RTC, EEPROM, 1-Wire master
+
++SPI3 - Flash + SD
++SPI6 - ADC + DAC
+
+TIM1  - ETR 32KHz from RTC
+TIM9  - SM0
+TIM11 - SM1
+
+U3 - BLE, LoRa
++U6 - GSM
+U7 - RTU
+
+
+
+DMA
+
+DMA1 S0
++Ch0 - SPI3_RX
+
+DMA1 S1
+  Ch4 - U3_RX
+  Ch5 - U7_TX
+
+DMA1 S2
+--Ch0 - SPI3_RX
++ Ch3 - I2C3_RX
+
+DMA1 S3
+  Ch4 - U3_TX
+  Ch5 - U7_RX
+
+DMA1 S4
++ Ch3 - I2C3_TX
+  Ch7 - U3_TX
+
+DMA1 S5
++  Ch0 - SPI3_TX
+
+DMA1 S6
+
+DMA1 S7
+--Ch0 - SPI3_TX
+
+
+
+DM2 S0
+  Ch6 - T1_TRIG
+
+DM2 S1
++ Ch5 - U6_RX
+  Ch6 - T1_Ch1
+
+DM2 S2
+- Ch5 - U6_RX
+  Ch6 - T1_Ch2
+
+DM2 S3
+  Ch6 - T1_Ch2
+
+DM2 S4
+  Ch6 - T1_TRIG, T1_Ch4, T1_COM
+
+DM2 S5
++ Ch1 - SPI6_TX
+  Ch2 - CRYP_OUT
+  Ch6 - TIM1_UP
+
+DM2 S6
+  Ch0 - T1_Ch1, T1_Ch2, T1_Ch3
++ Ch1 - SPI6_RX
+  Ch2 - CRYP_IN
+--Ch5 - U6_TX
+  Ch6 - T1_Ch3
+
+DM2 S7
+  Ch2 - HASH_IN
++ Ch5 - U6_TX
+
+
+DMA1 - конфликт U3 и U7
+DMA2 - нет свободных каналов для криптографии и хеширования, конфликт с U6 GSM для хеширования и с SPI6 ADC для криптографии

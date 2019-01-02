@@ -34,7 +34,8 @@ COMPILER_FLAGS = -Os -g -finline \
 -Werror-implicit-function-declaration \
 -Wwrite-strings \
 -DSTM32F437xx \
--D__thumb__
+-D__thumb__ \
+-DENABLE_SWD
 
 CFLAGS = --std=gnu11 $(COMPILER_FLAGS) \
 #-Wstrict-prototypes
@@ -61,7 +62,6 @@ $(ASOBJS): $(OBJDIR)/%.o: %.s
 	@if [ -n $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 	@echo "	AS	$<"
 	@$(CC) $(CFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
-
 
 target_dirs:
 	@for d in $(SUBDIRS); do \

@@ -1,9 +1,10 @@
 /*
 *****************************************************************************
 **
-**  File        : stm32_flash.ld
+
+**  File        : LinkerScript.ld
 **
-**  Abstract    : Linker script for STM32F407IG Device with
+**  Abstract    : Linker script for STM32F407VGTx Device with
 **                1024KByte FLASH, 128KByte RAM
 **
 **                Set heap size, stack size and stack location according
@@ -13,16 +14,17 @@
 **
 **  Target      : STMicroelectronics STM32
 **
-**  Environment : Atollic TrueSTUDIO(R)
 **
-**  Distribution: The file is distributed “as is,” without any warranty
+**  Distribution: The file is distributed as is, without any warranty
 **                of any kind.
 **
-**  (c)Copyright Atollic AB.
+**  (c)Copyright Ac6.
 **  You may use this file as-is or modify it according to the needs of your
-**  project. This file may only be built (assembled or compiled and linked)
-**  using the Atollic TrueSTUDIO(R) product. The use of this file together
-**  with other tools than Atollic TrueSTUDIO(R) is not permitted.
+**  project. Distribution of this file (unmodified or modified) is not
+**  permitted. Ac6 permit registered System Workbench for MCU users the
+**  rights to distribute the assembled, compiled & linked contents of this
+**  file as part of an application binary file, provided that it is built
+**  using the System Workbench for MCU toolchain.
 **
 *****************************************************************************
 */
@@ -31,17 +33,15 @@
 ENTRY(Reset_Handler)
 
 /* Highest address of the user mode stack */
-_estack = 0x2001FFFF;    /* end of RAM */
-
 /* Generate a link error if heap and stack don't fit into RAM */
-_Min_Heap_Size = 0;      /* required amount of heap  */
-_Min_Stack_Size = 0x400; /* required amount of stack */
+_Min_Heap_Size = 0x200;;      /* required amount of heap  */
+_Min_Stack_Size = 0x400;; /* required amount of stack */
 
 /* Specify the memory areas */
 MEMORY
 {
 FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 1024K
-RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
+RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 256K
 CCMRAM (rw)      : ORIGIN = 0x10000000, LENGTH = 64K
 }
 
@@ -117,7 +117,7 @@ SECTIONS
   .data : 
   {
     . = ALIGN(4);
-	. += 4;
+	. = . + 4;
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
@@ -131,7 +131,7 @@ SECTIONS
   /* CCM-RAM section 
   * 
   * IMPORTANT NOTE! 
-  * If initialized variables will be placed in this section, 
+  * If initialized variables will be placed in this section,
   * the startup code needs to be modified to copy the init-values.  
   */
   .ccmram :
@@ -161,15 +161,17 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
-
+  
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
   {
     . = ALIGN(4);
+    . = . + _Min_Stack_Size;
+    . = ALIGN(4);
+	_estack = .;
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
     . = . + _Min_Heap_Size;
-    . = . + _Min_Stack_Size;
     . = ALIGN(4);
   } >RAM
 
@@ -185,3 +187,5 @@ SECTIONS
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
+
+

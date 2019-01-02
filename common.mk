@@ -49,23 +49,27 @@ CXXOBJS = $(addprefix $(OBJDIR)/, $(CXXSRCS:.cpp=.o))
 ASOBJS = $(addprefix $(OBJDIR)/, $(ASRCS:.s=.o))
 
 $(COBJS): $(OBJDIR)/%.o: %.c
-	@if [ -n $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
+	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
 	@echo "	CC	$<"
 	@$(CC) $(CFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
+	touch -m $(TOPDIR)/target
 
 $(CXXOBJS): $(OBJDIR)/%.o: %.cpp
-	@if [ -n $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
+	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
 	@echo "	CXX	$<"
 	@$(CXX) $(CXXFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
+	touch -m $(TOPDIR)/target
 	
 $(ASOBJS): $(OBJDIR)/%.o: %.s
-	@if [ -n $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
+	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
 	@echo "	AS	$<"
 	@$(CC) $(CFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
+	touch -m $(TOPDIR)/target
 
 target_dirs:
 	@for d in $(SUBDIRS); do \
-		$(MAKE) -s -C $$d -f Makefile $(subst _dirs,,$@); \
+		$(MAKE) -s -C $$d -f Makefile target; \
 	done
 
 target: $(COBJS) $(CXXOBJS) $(ASOBJS) target_dirs
+	@test $(TOPDIR)/target

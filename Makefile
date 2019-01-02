@@ -52,7 +52,7 @@ ocd_reset:
 all: dozer.elf
 
 clean:
-	@rm -f .obj/* *.elf *.bin *.map
+	@rm -f .obj/* *.elf *.bin *.map target
 
 distclean: clean
 	@rm -rf .obj

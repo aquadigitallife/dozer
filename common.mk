@@ -35,10 +35,11 @@ COMPILER_FLAGS = -Os -g -finline \
 -Wwrite-strings \
 -DSTM32F437xx \
 -D__thumb__ \
--DENABLE_SWD
+-DENABLE_SWD \
+-DUSE_FULL_LL_DRIVER
 
 CFLAGS = --std=gnu11 $(COMPILER_FLAGS) \
-#-Wstrict-prototypes
+-Wstrict-prototypes
 
 CXXFLAGS = --std=c++11 $(COMPILER_FLAGS)
 
@@ -50,18 +51,21 @@ ASOBJS = $(addprefix $(OBJDIR)/, $(ASRCS:.s=.o))
 
 $(COBJS): $(OBJDIR)/%.o: %.c
 	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
+#	@[ -e $(OBJDIR)/$(dir $<) ] || mkdir -p $(OBJDIR)/$(dir $<)
 	@echo "	CC	$<"
 	@$(CC) $(CFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
 	touch -m $(TOPDIR)/target
 
 $(CXXOBJS): $(OBJDIR)/%.o: %.cpp
 	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
+#	@[ -e $(OBJDIR)/$(dir $<) ] || mkdir -p $(OBJDIR)/$(dir $<)
 	@echo "	CXX	$<"
 	@$(CXX) $(CXXFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
 	touch -m $(TOPDIR)/target
 	
 $(ASOBJS): $(OBJDIR)/%.o: %.s
 	@[ -e $(OBJDIR) ] || mkdir -p $(OBJDIR)
+#	@[ -e $(OBJDIR)/$(dir $<) ] || mkdir -p $(OBJDIR)/$(dir $<)
 	@echo "	AS	$<"
 	@$(CC) $(CFLAGS) $(addprefix -I, $(INCDIRS)) -c $< -MD -MP -MT $@ -MF $(@:%o=%d) -o $@
 	touch -m $(TOPDIR)/target

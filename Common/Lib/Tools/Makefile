@@ -13,7 +13,7 @@ $(TOPDIR)/Dozer/Main/Header \
 $(TOPDIR)/Dozer/Main/Header/Global \
 $(TOPDIR)/Dozer/Main/Header/System \
 ../../CMSIS \
-../../CMSIS/Lib \
+../../STM32F4xx_HAL_Driver/Inc \
 ../../Periphery/EFlash \
 ../../Device/Flash \
 ../../FreeRTOS/V9.0.0/Header \

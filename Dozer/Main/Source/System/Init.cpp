@@ -36,10 +36,10 @@ static inline void Init_Clocks()
 //	                RCC_APB1ENR_SPI2EN | RCC_APB1ENR_SPI3EN |
 //	                RCC_APB1ENR_TIM2EN;
 
-//	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN |
-//	                RCC_APB2ENR_SPI1EN   |
-//	                RCC_APB2ENR_TIM9EN   | RCC_APB2ENR_TIM10EN | RCC_APB2ENR_TIM11EN  |
-//	                RCC_APB2ENR_ADC1EN;
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN |
+	                RCC_APB2ENR_SPI1EN   |
+	                RCC_APB2ENR_TIM9EN   | RCC_APB2ENR_TIM10EN | RCC_APB2ENR_TIM11EN  |
+	                RCC_APB2ENR_ADC1EN   | 0;
 
 	// Для отладки
 #ifdef DEBUG
@@ -127,27 +127,27 @@ static inline void Init_WatchDogs()
 static inline void Init_GPIO()
 {
 	// Настраиваем руки/ноги
-	GPIO_InitTypeDef port = {};
-	GPIO_StructInit(&port);
+	LL_GPIO_InitTypeDef port = {};
+	LL_GPIO_StructInit(&port);
 
 	// Настраиваем все ноги на вход без подтяжки
-	port.Pin = GPIO_PIN_All;
-	port.Mode = GPIO_MODE_ANALOG;
-	port.Pull = GPIO_NOPULL;
+	port.Pin = LL_GPIO_PIN_ALL;
+	port.Mode = LL_GPIO_MODE_ANALOG;
+	port.Pull = LL_GPIO_PULL_NO;
 
-	GPIO_Init(GPIOB, &port);
-	GPIO_Init(GPIOC, &port);
-	GPIO_Init(GPIOD, &port);
-	GPIO_Init(GPIOE, &port);
-	GPIO_Init(GPIOH, &port);
-	GPIO_Init(GPIOF, &port);
-	GPIO_Init(GPIOG, &port);
+	LL_GPIO_Init(GPIOB, &port);
+	LL_GPIO_Init(GPIOC, &port);
+	LL_GPIO_Init(GPIOD, &port);
+	LL_GPIO_Init(GPIOE, &port);
+	LL_GPIO_Init(GPIOH, &port);
+	LL_GPIO_Init(GPIOF, &port);
+	LL_GPIO_Init(GPIOG, &port);
 
 #ifdef ENABLE_SWD
 	// У порта А не трогаем 13 и 14 пины, отвечающие за отладку
-	port.Pin = GPIO_PIN_All & ~(GPIO_PIN_13 | GPIO_PIN_14);
+	port.Pin = LL_GPIO_PIN_ALL & ~(LL_GPIO_PIN_13 | LL_GPIO_PIN_14);
 #endif
-	GPIO_Init(GPIOA, &port);
+	LL_GPIO_Init(GPIOA, &port);
 
 	// Гасим лампочки
 	LED_STATE_OFF;
@@ -163,6 +163,11 @@ static inline void Init_GPIO()
 	FLASH2_DESELECT0;
 	FLASH2_DESELECT1;
 	
+	SM0_DISABLE;
+	SM1_DISABLE;
+	SM0_FORWARD;
+	SM1_FORWARD;
+	
 	// Светодиоды индикации
 	// PB2  - пульс
 	// PF11 - работа
@@ -173,24 +178,28 @@ static inline void Init_GPIO()
 	// PF8  - активность ШД1
 	
 	// PB2 - пульс
-	GPIO_StructInit(&port);
-	port.Pin   = GPIO_PIN_2;
-	port.Mode  = GPIO_MODE_OUTPUT_PP;
-	port.Speed = GPIO_SPEED_FREQ_LOW;
-	GPIO_Init(GPIOB, &port);
+	LL_GPIO_StructInit(&port);
+	port.Pin   = LL_GPIO_PIN_2;
+	port.Mode  = LL_GPIO_MODE_OUTPUT;
+	port.OutputType  = LL_GPIO_OUTPUT_PUSHPULL;
+	port.Speed = LL_GPIO_SPEED_FREQ_LOW;
+	LL_GPIO_Init(GPIOB, &port);
 	// PF11 - работа
 	// PF12 - ошибка работы
-	port.Pin   = GPIO_PIN_11 | GPIO_PIN_12;
-	GPIO_Init(GPIOF, &port);
+	port.Pin   = LL_GPIO_PIN_11 | LL_GPIO_PIN_12;
+	LL_GPIO_Init(GPIOF, &port);
 	// PG7 - испольование карты памяти
 	// PG8 - испольование микросхемы памяти
-	port.Pin   = GPIO_PIN_7 | GPIO_PIN_8;
-	GPIO_Init(GPIOG, &port);
+	port.Pin   = LL_GPIO_PIN_7 | LL_GPIO_PIN_8;
+	LL_GPIO_Init(GPIOG, &port);
 	// PF9 - активность ШД0
 	// PF8 - активность ШД1
-	port.Pin   = GPIO_PIN_8 | GPIO_PIN_9;
-	GPIO_Init(GPIOF, &port);
-
+	port.Pin   = LL_GPIO_PIN_8 | LL_GPIO_PIN_9;
+	LL_GPIO_Init(GPIOF, &port);
+	//Управление ШД
+	port.Pin   = LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_4 | LL_GPIO_PIN_6;
+	LL_GPIO_Init(GPIOE, &port);
+	
 #ifdef DEBUG
 	// Для отладки
 	// PA8 - MCO1
@@ -209,8 +218,7 @@ static inline void Init_GPIO()
 static inline void Init_Timers()
 {
 	// Настройка таймеров
-
-
+	
 	// Системный таймер иницализируется RTOS
 }
 
@@ -257,6 +265,7 @@ void Init()
 	Init_WatchDogs();
 	Init_GPIO();
 	Init_Timers();
+	InitSM1(50, 50);
 
 	// Настраиваем и разрешаем прерывания
 	Init_NVIC();

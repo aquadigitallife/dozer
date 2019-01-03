@@ -16,7 +16,7 @@ $(TOPDIR)/Dozer/Main/Header/System \
 ../Lib \
 ../Lib/CRC \
 ../CMSIS \
-../CMSIS/Lib \
+../STM32F4xx_HAL_Driver/Inc \
 ../Periphery/EFlash \
 ../Device/Flash \
 ../FreeRTOS/V9.0.0/Header \

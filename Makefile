@@ -2,6 +2,7 @@ TOPDIR = .
 
 SUBDIRS = \
 	Common/CMSIS \
+	Common/STM32F4xx_HAL_Driver/Src \
 	Common/FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F \
 	Common/FreeRTOS/V9.0.0/Source \
 	Common/Lib/Tools \
@@ -52,7 +53,7 @@ ocd_reset:
 all: dozer.elf
 
 clean:
-	@rm -f .obj/* *.elf *.bin *.map target
+	@rm -rf .obj/* *.elf *.bin *.map target
 
 distclean: clean
 	@rm -rf .obj

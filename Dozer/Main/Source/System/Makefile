@@ -7,7 +7,7 @@ CSRCS =
 CXXSRCS = \
 	Init.cpp \
 	Interrupts.cpp
-
+	
 INCDIRS = \
 ../../Header \
 ../../Header/Global \
@@ -15,7 +15,7 @@ INCDIRS = \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/CMSIS \
-$(TOPDIR)/Common/CMSIS/Lib \
+$(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Periphery/EFlash \
 $(TOPDIR)/Common/Device/Flash \
 $(TOPDIR)/Common/FreeRTOS/V9.0.0/Header \

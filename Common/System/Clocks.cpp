@@ -95,5 +95,6 @@ uint32_t InitRCC()
 	// Ждём, пока PLL выберется как источник тактовой частоты
 	while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 
+	SystemCoreClockUpdate();
 	return Res;
 }

@@ -62,6 +62,18 @@ const uint32_t FW_VER = 0x03000600UL;
 #define BUT_RESET             ((GPIOE->IDR & (1 <<  9)) == 0)
 #define BUT_TEST              ((GPIOE->IDR & (1 << 10)) == 0)
 
+// ШД
+#define SM0_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BS_6;} while (0)
+#define SM0_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BR_6;} while (0)
+#define SM0_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BR_4;} while (0)
+#define SM0_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BR_4;} while (0)
+
+#define SM1_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BS_1;} while (0)
+#define SM1_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BR_1;} while (0)
+#define SM1_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BR_0;} while (0)
+#define SM1_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BR_0;} while (0)
+
+
 #ifdef DEBUG_TRACE
 
 #define DBG_TR0_UP                      do { GPIOB->BSRR = GPIO_BSRR_BS3; } while(0)

@@ -23,6 +23,7 @@
 // Макросы, инициализация ядра и периферии
 #include "Macros.h"
 #include "Init.h"
+#include "Motors.h"
 
 // FreeRTOS
 #include "FreeRTOS.h"
@@ -35,8 +36,9 @@
 
 // CMSIS
 #include "stm32f4xx.h"
-#include "stm32f4xx_gpio.h"
-
+//HAL Driver
+#include "stm32f4xx_ll_gpio.h"
+#include "stm32f4xx_ll_tim.h"
 // Периферия
 #include "EFlash.h"
 

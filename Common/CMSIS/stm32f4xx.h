@@ -108,6 +108,18 @@
                                    STM32F413RG, STM32F413VG and STM32F413ZG Devices */
   /* #define STM32F423xx */   /*!< STM32F423CH, STM32F423RH, STM32F423VH and STM32F423ZH Devices */
 #endif
+   
+/*  Tip: To avoid modifying this file each time you need to switch between these
+        devices, you can define the device in your toolchain compiler preprocessor.
+  */
+#if !defined  (USE_HAL_DRIVER)
+/**
+ * @brief Comment the line below if you will not use the peripherals drivers.
+   In this case, these drivers will not be included and the application code will 
+   be based on direct access to peripherals registers 
+   */
+  /*#define USE_HAL_DRIVER */
+#endif /* USE_HAL_DRIVER */
 
 /**
   * @brief CMSIS version number V2.6.2

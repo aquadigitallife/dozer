@@ -120,7 +120,7 @@ int _write(int file, char *ptr, int len)
 }
 
 __attribute__((used))
-void abort()
+void abort(void)
 {
 	/* Abort called */
 	while (1);

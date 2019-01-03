@@ -6,14 +6,15 @@ SUBDIRS = \
 CSRCS =
 
 CXXSRCS = \
-	Main.cpp
+	Main.cpp \
+	Motors.cpp
 
 INCDIRS = \
 ../Header \
 ../Header/Global \
 ../Header/System \
 $(TOPDIR)/Common/CMSIS \
-$(TOPDIR)/Common/CMSIS/Lib \
+$(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/Periphery/EFlash \

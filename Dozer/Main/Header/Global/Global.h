@@ -23,7 +23,7 @@
 // Макросы, инициализация ядра и периферии
 #include "Macros.h"
 #include "Init.h"
-#include "Motors.h"
+//#include "Motors.h"
 
 // FreeRTOS
 #include "FreeRTOS.h"

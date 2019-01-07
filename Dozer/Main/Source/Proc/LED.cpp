@@ -6,7 +6,7 @@ void LED_TaskProc(void *Param)
 	
 	uint32_t WDG_Time = 0;
 	ResetWatchdog(WDG_Time, WDG_TASK_LED, MS_TO_TICK(3000), 1, true);
-	
+/*	
 	// Включем свю индикацию для теста
 	LED_STATE_ON;
 	LED_WORK_ON;
@@ -25,7 +25,7 @@ void LED_TaskProc(void *Param)
 	LED_FLASH_BUSY_OFF;
 	LED_SM0_OFF;
 	LED_SM1_OFF;
-
+*/
 	while (1)
 	{
 		ResetWatchdog(WDG_Time, WDG_TASK_LED, MS_TO_TICK(32), 2, true);

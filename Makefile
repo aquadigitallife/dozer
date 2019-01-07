@@ -8,6 +8,7 @@ SUBDIRS = \
 	Common/Lib/Tools \
 	Common/Lib/CRC \
 	Common/Periphery/EFlash \
+	Common/Periphery/Motors \
 	Common/System \
 	Dozer/Main/Source
 	

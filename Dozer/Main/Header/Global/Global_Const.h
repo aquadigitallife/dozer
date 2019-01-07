@@ -54,24 +54,62 @@ const uint32_t FW_VER = 0x03000600UL;
 
 // Дискретные входы
 #define POWER_GOOD            ((GPIOA->IDR & (1 <<  9)) == 0)
+#define DI_CTRL1              ((GPIOA->IDR & (1 << 15)) == 1)
+#define DI_CTRL2              ((GPIOD->IDR & (1 <<  5)) == 1)
+#define DI_CTRL3              ((GPIOB->IDR & (1 <<  7)) == 1)	// тампер заслонки
+
+// Дискретные выходы
+#define DO_CTRL1_ON           do {GPIOC->BSRR = GPIO_BSRR_BS_14;} while (0)
+#define DO_CTRL1_OFF          do {GPIOC->BSRR = GPIO_BSRR_BR_14;} while (0)
+
+#define DO_CTRL2_ON           do {GPIOC->BSRR = GPIO_BSRR_BS_15;} while (0)
+#define DO_CTRL2_OFF          do {GPIOC->BSRR = GPIO_BSRR_BR_15;} while (0)
+
+#define DO_CTRL3_ON           do {GPIOF->BSRR = GPIO_BSRR_BS_0;} while (0)
+#define DO_CTRL3_OFF          do {GPIOF->BSRR = GPIO_BSRR_BR_0;} while (0)
+
+#define DO_CTRL4_ON           do {GPIOF->BSRR = GPIO_BSRR_BS_1;} while (0)
+#define DO_CTRL4_OFF          do {GPIOF->BSRR = GPIO_BSRR_BR_1;} while (0)
+
+#define DO_CTRL5_ON           do {GPIOF->BSRR = GPIO_BSRR_BS_2;} while (0)
+#define DO_CTRL5_OFF          do {GPIOF->BSRR = GPIO_BSRR_BR_2;} while (0)
+
+#define DO_CTRL6_ON           do {GPIOF->BSRR = GPIO_BSRR_BS_3;} while (0)
+#define DO_CTRL6_OFF          do {GPIOF->BSRR = GPIO_BSRR_BR_3;} while (0)
 
 // Кнопки
-#define BUT_SM0_TEST_A        ((GPIOA->IDR & (1 <<  6)) == 0)
-#define BUT_SM0_TEST_B        ((GPIOA->IDR & (1 <<  4)) == 0)
-#define BUT_SM1_TEST          ((GPIOA->IDR & (1 <<  5)) == 0)
-#define BUT_RESET             ((GPIOE->IDR & (1 <<  9)) == 0)
-#define BUT_TEST              ((GPIOE->IDR & (1 << 10)) == 0)
+#define IS_SM0_TEST_A        ((GPIOA->IDR & (1 <<  6)) == 0)
+#define IS_SM0_TEST_B        ((GPIOA->IDR & (1 <<  4)) == 0)
+#define IS_SM1_TEST          ((GPIOA->IDR & (1 <<  5)) == 0)
+
+#define MB_MASK               ((1 <<  4) | (1 <<  5) | (1 <<  6))
+#define MOTOR_BUTTONS         (GPIOA->IDR & MB_MASK)
+#define SM0_TEST_A            (MB_MASK & ~(1 <<  6))
+#define SM0_TEST_B            (MB_MASK & ~(1 <<  4))
+#define SM1_TEST              (MB_MASK & ~(1 <<  5))
+
+#define IS_RESET             ((GPIOE->IDR & (1 <<  9)) == 0)
+#define IS_TEST              ((GPIOE->IDR & (1 << 10)) == 0)
+
+#define TST_MASK             ((1 <<  9) | (1 << 10))
+#define TEST_BUTTONS         (GPIOE->IDR & TST_MASK)
+#define TEST_RESET           (TST_MASK & ~(1 <<  9))
+#define TEST_TEST            (TST_MASK & ~(1 << 10))
 
 // ШД
-#define SM0_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BS_6;} while (0)
-#define SM0_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BR_6;} while (0)
-#define SM0_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BR_4;} while (0)
+#define PWR_SM0_EN            do {GPIOF->BSRR = GPIO_BSRR_BS_4;} while (0)
+#define PWR_SM0_DIS           do {GPIOF->BSRR = GPIO_BSRR_BR_4;} while (0)
+#define SM0_WAKEUP            do {GPIOE->BSRR = GPIO_BSRR_BS_3;} while (0)
+#define SM0_SLEEP             do {GPIOE->BSRR = GPIO_BSRR_BR_3;} while (0)
+#define SM0_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BR_6;} while (0)
+#define SM0_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BS_6;} while (0)
+#define SM0_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BS_4;} while (0)
 #define SM0_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BR_4;} while (0)
 
-#define SM1_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BS_1;} while (0)
-#define SM1_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BR_1;} while (0)
+#define SM1_ENABLE            do {GPIOE->BSRR = GPIO_BSRR_BR_1;} while (0)
+#define SM1_DISABLE           do {GPIOE->BSRR = GPIO_BSRR_BS_1;} while (0)
 #define SM1_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BR_0;} while (0)
-#define SM1_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BR_0;} while (0)
+#define SM1_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BS_0;} while (0)
 
 
 #ifdef DEBUG_TRACE
@@ -133,6 +171,7 @@ const uint32_t FW_VER = 0x03000600UL;
 // Приоритеты задач (меньше - ниже)
 const uint8_t TASK_PRI_IDLE    = 0;
 const uint8_t TASK_PRI_LED     = 0; // Управление индикацией
+const uint8_t TASK_PRI_FLASH   = 1;
 const uint8_t TASK_PRI_WDG     = configMAX_PRIORITIES-1; // Отслеживание работы задач и сброс сторожевого таймера
 
 // ID задач для задачи сброса сторожевой собаки

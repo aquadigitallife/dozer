@@ -15,7 +15,7 @@ READELF = $(TOOLCHAIN_PREFIX)readelf
 STRIP = $(TOOLCHAIN_PREFIX)strip
 SIZE = $(TOOLCHAIN_PREFIX)size
 
-COMPILER_FLAGS = -Os -g -finline \
+COMPILER_FLAGS = -O0 -g -finline \
 -mcpu=cortex-m4 \
 -mthumb \
 -mthumb-interwork \

@@ -16,6 +16,7 @@ $(TOPDIR)/Dozer/Main/Header/System \
 ../../Lib/CRC \
 ../../CMSIS \
 ../../STM32F4xx_HAL_Driver/Inc \
+../Motors \
 ../../Device/Flash \
 ../../FreeRTOS/V9.0.0/Header \
 ../../FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F

@@ -17,6 +17,7 @@ $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/CMSIS \
 $(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Periphery/EFlash \
+$(TOPDIR)/Common/Periphery/Motors \
 $(TOPDIR)/Common/Device/Flash \
 $(TOPDIR)/Common/FreeRTOS/V9.0.0/Header \
 $(TOPDIR)/Common/FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F

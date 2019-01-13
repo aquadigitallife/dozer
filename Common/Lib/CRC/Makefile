@@ -16,7 +16,7 @@ $(TOPDIR)/Dozer/Main/Header/System \
 ../../Periphery/EFlash \
 ../../Periphery/Motors \
 ../../Device/Flash \
-../../FreeRTOS/V9.0.0/Header \
-../../FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F
+../../FreeRTOS/v10.1.1/include \
+../../FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F
 
 include $(TOPDIR)/common.mk

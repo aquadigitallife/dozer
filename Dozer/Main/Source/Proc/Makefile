@@ -8,7 +8,8 @@ CXXSRCS = \
 	Flash.cpp \
 	LED.cpp \
 	WDG.cpp \
-	Buttons.cpp
+	Buttons.cpp \
+	BLE.cpp
 	
 INCDIRS = \
 ../../Header \
@@ -21,7 +22,7 @@ $(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Periphery/EFlash \
 $(TOPDIR)/Common/Periphery/Motors \
 $(TOPDIR)/Common/Device/Flash \
-$(TOPDIR)/Common/FreeRTOS/V9.0.0/Header \
-$(TOPDIR)/Common/FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F
+$(TOPDIR)/Common/FreeRTOS/v10.1.1/include \
+$(TOPDIR)/Common/FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F
 
 include $(TOPDIR)/common.mk

@@ -81,7 +81,7 @@ void StopSM0(void)
 
 void Motor0Proc(void *Param)
 {
-	QueueHandle_t SM0_Queue = Param;
+	QueueHandle_t SM0_Queue = (QueueHandle_t)Param;
 	uint8_t mButton;
 	
 	InitSM0(0x400);	// при 0x400 - 22 сек полный ход.

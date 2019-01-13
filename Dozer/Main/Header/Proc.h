@@ -15,3 +15,10 @@ void Motor0Cycle(void *Param);
 void Motor1Proc(void *Param);
 
 void ButtonsProc(void *Param);
+
+void InitBLEUart(void);
+void BLEUartTx(uint32_t len, uint8_t *data);
+
+void BLEProc(void *Param);
+
+

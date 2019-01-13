@@ -79,7 +79,7 @@ static inline void Init_RTOS()
 #ifdef DEBUG // Что бы в прошивке не было этих строк
 			"LED",
 			"FLASH",
-			"",
+			"BUTTONS",
 			"",
 			"",
 			""
@@ -91,6 +91,7 @@ static inline void Init_RTOS()
 	xTaskCreate(LED_TaskProc  , cpTASK[0] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_LED  , &LED_TaskHandle);
 	xTaskCreate(FlashProc , cpTASK[1] , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_FLASH, &FlashTaskHandle);
 	xTaskCreate(ButtonsProc, cpTASK[2] , configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &ButtonsTaskHandle);
+	xTaskCreate(BLEProc, cpTASK[3] , configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &BLETaskHandle);
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);
 //	xTaskCreate(GyroTaskProc  , cpTASK[4] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_GYRO , &GyroTaskHandle);

@@ -37,8 +37,11 @@
 // CMSIS
 #include "stm32f4xx.h"
 //HAL Driver
+#include "stm32f4xx_ll_bus.h"
 #include "stm32f4xx_ll_gpio.h"
 #include "stm32f4xx_ll_tim.h"
+#include "stm32f4xx_ll_usart.h"
+#include "stm32f4xx_ll_dma.h"
 // Периферия
 #include "EFlash.h"
 

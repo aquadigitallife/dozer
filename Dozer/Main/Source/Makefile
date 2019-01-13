@@ -19,7 +19,7 @@ $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/Periphery/EFlash \
 $(TOPDIR)/Common/Periphery/Motors \
 $(TOPDIR)/Common/Device/Flash \
-$(TOPDIR)/Common/FreeRTOS/V9.0.0/Header \
-$(TOPDIR)/Common/FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F
+$(TOPDIR)/Common/FreeRTOS/v10.1.1/include \
+$(TOPDIR)/Common/FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F
 
 include $(TOPDIR)/common.mk

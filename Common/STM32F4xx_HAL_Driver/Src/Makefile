@@ -3,9 +3,10 @@ TOPDIR = ../../..
 SUBDIRS =
 
 CSRCS = \
-	stm32f4xx_ll_gpio.c \
-	stm32f4xx_ll_tim.c
-#	stm32f4xx_hal_msp.c \
+	stm32f4xx_ll_gpio.c
+#	stm32f4xx_ll_tim.c \
+#	stm32f4xx_ll_usart.c \
+#	stm32f4xx_ll_dma.c
 	
 CXXSRCS =
 

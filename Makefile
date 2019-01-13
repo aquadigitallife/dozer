@@ -1,16 +1,15 @@
 TOPDIR = .
 
-SUBDIRS = \
-	Common/CMSIS \
-	Common/STM32F4xx_HAL_Driver/Src \
-	Common/FreeRTOS/V9.0.0/Portable/GCC/ARM_CM4F \
-	Common/FreeRTOS/V9.0.0/Source \
-	Common/Lib/Tools \
-	Common/Lib/CRC \
-	Common/Periphery/EFlash \
-	Common/Periphery/Motors \
-	Common/System \
-	Dozer/Main/Source
+SUBDIRS = Common/CMSIS
+SUBDIRS += Common/STM32F4xx_HAL_Driver/Src
+SUBDIRS += Common/FreeRTOS/V10.1.1
+SUBDIRS += Common/Lib/Tools
+SUBDIRS += Common/Lib/CRC
+SUBDIRS += Common/Periphery/EFlash
+SUBDIRS += Common/Periphery/Motors
+SUBDIRS += Common/Periphery/UART
+SUBDIRS += Common/System
+SUBDIRS += Dozer/Main/Source
 	
 CSRCS =
 
@@ -20,7 +19,7 @@ GLOBAL_LDFLAGS = -z max-page-size=4096 -nostartfiles --gc-sections
 
 LINKER_SCRIPT = STM32F437GTx_FLASH.ld
 
-OPENOCD_DIR = /c/OpenOCD-20170821
+OPENOCD_DIR = /c/openocd
 OPENOCD = $(OPENOCD_DIR)/bin/openocd
 OPENOCD_SCRIPTS_DIR = $(OPENOCD_DIR)/share/openocd/scripts
 
@@ -28,6 +27,13 @@ dozer.elf: target
 	@echo "	LD	$@"
 	@$(SIZE) -t --common $(sort $(wildcard .obj/*.o))
 	@$(LD) $(GLOBAL_LDFLAGS) -T $(LINKER_SCRIPT) $(wildcard .obj/*.o) -L$(LIBCDIR) -L$(LIBGCCDIR) -lc -lgcc -Map=$(basename $@).map -o $@
+
+debug: dozer.elf
+	@$(OBJCOPY) -O binary $< $(basename $<).bin
+	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0;stm32f2x mass_erase 0; sleep 500;flash write_bank 0 $(basename $<).bin;sleep 500;reset halt" &
+	sleep 20
+	@rm -f $(basename $<).bin
+	$(GDB) -q -ex 'target remote localhost:3333' $<
 
 upload: dozer.elf
 	@$(OBJCOPY) -O binary $< $(basename $<).bin

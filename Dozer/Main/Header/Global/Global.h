@@ -31,6 +31,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "timers.h"
+#include "stream_buffer.h"
 
 #include "Proc.h"
 

@@ -1,11 +1,14 @@
 #include "Global.h"
 
+static	uint8_t outString[20];
+
 void BLEProc(void *Param)
 {
-	static const char outString[] = "Hello, Dozer!\n";
 	InitBLEUart();
+
 	while (1) {
-		BLEUartTx(14, (uint8_t*)outString);
-		vTaskDelay(MS_TO_TICK(1000));
+		uint8_t bytes = BLEUartRx(10, outString);
+		if (bytes) BLEUartTx(bytes, outString);
+		vTaskDelay(MS_TO_TICK(100));
 	}
 }

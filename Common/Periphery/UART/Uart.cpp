@@ -1,8 +1,18 @@
 #include "Global.h"
 
+#define sbiSTREAM_BUFFER_LENGTH_BYTES		( ( size_t ) 100 )
+#define sbiSTREAM_BUFFER_TRIGGER_LEVEL_1	( ( BaseType_t ) 1 )
+
 extern "C" {
 void DMA1_Stream3_IRQHandler(void) __attribute__((interrupt));
+void USART3_IRQHandler(void) __attribute__((interrupt));
 }
+
+	/* The stream buffer that is used to send data from an interrupt to the task. */
+static StreamBufferHandle_t BLEStreamBuffer = NULL;
+
+
+void BLEUartTx(uint32_t len, uint8_t *data);
 
 void InitBLEUartEngine(void)
 {
@@ -20,6 +30,11 @@ void InitBLEUartEngine(void)
   LL_GPIO_SetPinOutputType(GPIOD, LL_GPIO_PIN_9, LL_GPIO_OUTPUT_PUSHPULL);
   LL_GPIO_SetPinPull(GPIOD, LL_GPIO_PIN_9, LL_GPIO_PULL_UP);
 
+  /* (2) NVIC Configuration for USART interrupts */
+  /*  - Set priority for USARTx_IRQn */
+  /*  - Enable USARTx_IRQn */
+  NVIC_SetPriority(USART3_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);  
+  NVIC_EnableIRQ(USART3_IRQn);
   /* (2) Enable USART3 peripheral clock and clock source ****************/
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART3);
 
@@ -55,6 +70,11 @@ void InitBLEUartEngine(void)
 
   /* (4) Enable USART3 **********************************************************/
   LL_USART_Enable(USART3);
+
+  /* Enable RXNE and Error interrupts */
+  LL_USART_EnableIT_RXNE(USART3);
+//  LL_USART_EnableIT_ERROR(USART3);
+
 }
 
 void InitBLEUartDMA(void)
@@ -63,7 +83,7 @@ void InitBLEUartDMA(void)
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1); 
 
   /* (2) Configure NVIC for DMA transfer complete/error interrupts */
-  NVIC_SetPriority(DMA1_Stream3_IRQn, 3);
+  NVIC_SetPriority(DMA1_Stream3_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);
   NVIC_EnableIRQ(DMA1_Stream3_IRQn);
 
   /* (3) Configure the DMA functional parameters for transmission */
@@ -92,16 +112,40 @@ void DMA1_Stream3_IRQHandler(void)
 }
 
 
-void InitBLEUart(void)
+void USART3_IRQHandler(void)
 {
-	InitBLEUartEngine();
-	InitBLEUartDMA();
+  __IO uint8_t received_char;
+  
+  /* Check RXNE flag value in SR register */
+  if(LL_USART_IsActiveFlag_RXNE(USART3) && LL_USART_IsEnabledIT_RXNE(USART3))
+  {
+  /* Read Received character. RXNE flag is cleared by reading of DR register */
+	received_char = LL_USART_ReceiveData8(USART3);
+
+	/* Send the received character to the stream buffer. */
+	if (BLEStreamBuffer)
+		xStreamBufferSendFromISR( BLEStreamBuffer, (const uint8_t*)&received_char, 1, NULL );
+  }
+//  else
+//  {
+    /* Call Error function */
+//    Error_Callback();
+//  }
+	
 }
 
-void BLEUartTx(uint32_t len, uint8_t *data)
+StreamBufferHandle_t InitBLEUart(void)
+{
+	BLEStreamBuffer = xStreamBufferCreate( sbiSTREAM_BUFFER_LENGTH_BYTES, sbiSTREAM_BUFFER_TRIGGER_LEVEL_1 );
+	InitBLEUartEngine();
+	InitBLEUartDMA();
+	return BLEStreamBuffer;
+}
+
+void BLEUartTx(uint32_t len, const void *data)
 {
 	
-  while (LL_DMA_IsActiveFlag_TC3(DMA1)); // Есть-ли во FreeRTOS принудительное переключение контекста?
+  while (LL_DMA_IsActiveFlag_TC3(DMA1)) taskYIELD();
 
   WRITE_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->M0AR, (uint32_t)data);
   MODIFY_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->NDTR, DMA_SxNDT, len);
@@ -113,4 +157,14 @@ void BLEUartTx(uint32_t len, uint8_t *data)
   LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_3);
 }
 
+uint32_t BLEUartRx(uint32_t len, void *data)
+{
+	xStreamBufferReset( BLEStreamBuffer );
+	xStreamBufferSetTriggerLevel( BLEStreamBuffer, len );
+	return xStreamBufferReceive( BLEStreamBuffer, data, len, 500 );
+}
 
+uint32_t BLEUartPeek(void)
+{
+	return xStreamBufferBytesAvailable(BLEStreamBuffer);
+}

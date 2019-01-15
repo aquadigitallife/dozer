@@ -16,8 +16,10 @@ void Motor1Proc(void *Param);
 
 void ButtonsProc(void *Param);
 
-void InitBLEUart(void);
-void BLEUartTx(uint32_t len, uint8_t *data);
+StreamBufferHandle_t InitBLEUart(void);
+void BLEUartTx(uint32_t len, const void *data);
+uint32_t BLEUartRx(uint32_t len, void *data);
+uint32_t BLEUartPeek(void);
 
 void BLEProc(void *Param);
 

@@ -290,3 +290,11 @@ void Init()
 	// Настраиваем и разрешаем прерывания
 	Init_NVIC();
 }
+
+extern "C" {
+	void led_err_on(void);
+}
+void led_err_on(void)
+{
+	LED_ERR_ON;
+}

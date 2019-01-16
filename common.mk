@@ -1,6 +1,6 @@
 
 TOOLCHAIN_PREFIX := /c/gnuarm/bin/arm-none-eabi-
-VERSION := 8.2.1
+VERSION := 7.2.1
 
 CC = $(TOOLCHAIN_PREFIX)gcc-$(VERSION)
 CXX = $(TOOLCHAIN_PREFIX)g++
@@ -29,6 +29,8 @@ COMPILER_FLAGS = -O0 -g -finline \
 -Wno-unused-parameter \
 -Wno-unused-function \
 -Wno-unused-label \
+-Wno-type-limits \
+-Wno-deprecated-declarations \
 -Werror=return-type \
 -ffunction-sections \
 -fdata-sections \

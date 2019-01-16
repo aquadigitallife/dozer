@@ -2,7 +2,8 @@ TOPDIR = ../../../..
 
 SUBDIRS =
 
-CSRCS =
+CSRCS = gecko_bglib.c
+#	gecko_bglib_var.c
 
 CXXSRCS = \
 	Flash.cpp \
@@ -15,6 +16,7 @@ INCDIRS = \
 ../../Header \
 ../../Header/Global \
 ../../Header/System \
+../../Header/BLE \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/CMSIS \

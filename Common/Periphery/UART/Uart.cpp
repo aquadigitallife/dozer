@@ -1,6 +1,5 @@
 #include "Global.h"
 
-#define sbiSTREAM_BUFFER_LENGTH_BYTES		( ( size_t ) 100 )
 #define sbiSTREAM_BUFFER_TRIGGER_LEVEL_1	( ( BaseType_t ) 1 )
 
 extern "C" {
@@ -8,7 +7,7 @@ void DMA1_Stream3_IRQHandler(void) __attribute__((interrupt));
 void USART3_IRQHandler(void) __attribute__((interrupt));
 }
 
-	/* The stream buffer that is used to send data from an interrupt to the task. */
+/* The stream buffer that is used to send data from an interrupt to the task. */
 static StreamBufferHandle_t BLEStreamBuffer = NULL;
 
 
@@ -134,37 +133,37 @@ void USART3_IRQHandler(void)
 	
 }
 
-StreamBufferHandle_t InitBLEUart(void)
+StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes)
 {
-	BLEStreamBuffer = xStreamBufferCreate( sbiSTREAM_BUFFER_LENGTH_BYTES, sbiSTREAM_BUFFER_TRIGGER_LEVEL_1 );
+	BLEStreamBuffer = xStreamBufferCreate( xBufferSizeBytes, sbiSTREAM_BUFFER_TRIGGER_LEVEL_1 );
 	InitBLEUartEngine();
 	InitBLEUartDMA();
 	return BLEStreamBuffer;
 }
 
-void BLEUartTx(uint32_t len, const void *data)
+void BLEUartTx(uint32_t len, uint8_t *data)
 {
-	
   while (LL_DMA_IsActiveFlag_TC3(DMA1)) taskYIELD();
 
   WRITE_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->M0AR, (uint32_t)data);
   MODIFY_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->NDTR, DMA_SxNDT, len);
 
-  /* Enable DMA TX Request */
+  // Enable DMA TX Request
   LL_USART_EnableDMAReq_TX(USART3);
 
-  /* Enable DMA Channel Tx */
+  // Enable DMA Channel Tx
   LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_3);
+  
 }
 
-uint32_t BLEUartRx(uint32_t len, void *data)
+int32_t BLEUartRx(uint32_t len, uint8_t *data)
 {
-	xStreamBufferReset( BLEStreamBuffer );
+//	xStreamBufferReset( BLEStreamBuffer );
 	xStreamBufferSetTriggerLevel( BLEStreamBuffer, len );
 	return xStreamBufferReceive( BLEStreamBuffer, data, len, 500 );
 }
 
-uint32_t BLEUartPeek(void)
+int32_t BLEUartPeek(void)
 {
 	return xStreamBufferBytesAvailable(BLEStreamBuffer);
 }

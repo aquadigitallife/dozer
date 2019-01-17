@@ -95,8 +95,8 @@
 #define BGLIB_DEFINE()                                      \
   struct gecko_cmd_packet _gecko_cmd_msg;                   \
   struct gecko_cmd_packet _gecko_rsp_msg;                   \
-  struct gecko_cmd_packet *gecko_cmd_msg;                   \
-  struct gecko_cmd_packet *gecko_rsp_msg;                   \
+  struct gecko_cmd_packet *gecko_cmd_msg = &_gecko_cmd_msg; \
+  struct gecko_cmd_packet *gecko_rsp_msg = &_gecko_rsp_msg; \
   void (*bglib_output)(uint32_t len1, uint8_t* data1);      \
   int32_t (*bglib_input)(uint32_t len1, uint8_t* data1);    \
   int32_t (*bglib_peek)(void);                              \
@@ -113,7 +113,7 @@ extern int    gecko_queue_r;
  * @param OFUNC
  * @param IFUNC
  */
-#define BGLIB_INITIALIZE(OFUNC, IFUNC) bglib_output = OFUNC; bglib_input = IFUNC; bglib_peek = NULL; gecko_cmd_msg = &_gecko_cmd_msg; gecko_rsp_msg = &_gecko_rsp_msg;
+#define BGLIB_INITIALIZE(OFUNC, IFUNC) bglib_output = OFUNC; bglib_input = IFUNC; bglib_peek = NULL;
 
 /**
  * Initialize BGLIB to support nonblocking mode
@@ -121,7 +121,7 @@ extern int    gecko_queue_r;
  * @param IFUNC
  * @param PFUNC peek function to check if there is data to be read from UART
  */
-#define BGLIB_INITIALIZE_NONBLOCK(OFUNC, IFUNC, PFUNC) bglib_output = OFUNC; bglib_input = IFUNC; bglib_peek = PFUNC; gecko_cmd_msg = &_gecko_cmd_msg; gecko_rsp_msg = &_gecko_rsp_msg;
+#define BGLIB_INITIALIZE_NONBLOCK(OFUNC, IFUNC, PFUNC) bglib_output = OFUNC; bglib_input = IFUNC; bglib_peek = PFUNC;
 
 extern void(*bglib_output)(uint32_t len1, uint8_t* data1);
 extern int32_t (*bglib_input)(uint32_t len1, uint8_t* data1);

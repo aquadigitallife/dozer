@@ -1,20 +1,17 @@
-TOPDIR = ../../../..
+TOPDIR = ../../../../..
 
-SUBDIRS = BLE
+SUBDIRS =
 
-CSRCS =
+CSRCS = gecko_bglib.c
 
 CXXSRCS = \
-	Flash.cpp \
-	LED.cpp \
-	WDG.cpp \
-	Buttons.cpp
+	BLE.cpp
 	
 INCDIRS = \
-../../Header \
-../../Header/Global \
-../../Header/System \
-../../Header/BLE \
+../../../Header \
+../../../Header/Global \
+../../../Header/System \
+../../../Header/BLE \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/CMSIS \

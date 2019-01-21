@@ -8,6 +8,7 @@ SUBDIRS += Common/Lib/CRC
 SUBDIRS += Common/Periphery/EFlash
 SUBDIRS += Common/Periphery/Motors
 SUBDIRS += Common/Periphery/UART
+SUBDIRS += Common/Periphery/I2C
 SUBDIRS += Common/System
 SUBDIRS += Dozer/Main/Source
 	
@@ -29,11 +30,10 @@ dozer.elf: target
 	@$(LD) $(GLOBAL_LDFLAGS) -T $(LINKER_SCRIPT) $(wildcard .obj/*.o) -L$(LIBCDIR) -L$(LIBGCCDIR) -lc -lgcc -Map=$(basename $@).map -o $@
 
 debug: dozer.elf
-	@$(OBJCOPY) -O binary $< $(basename $<).bin
-	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0;stm32f2x mass_erase 0; sleep 500;flash write_bank 0 $(basename $<).bin;sleep 500;reset halt" &
-	sleep 20
-	@rm -f $(basename $<).bin
+	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0" &
+	sleep 3
 	$(GDB) -q -ex 'target remote localhost:3333' $<
+#	$(shell kill $(ps | grep openocd | sed 's/\s\+/ /g' | cut -d' ' -f2))
 
 upload: dozer.elf
 	@$(OBJCOPY) -O binary $< $(basename $<).bin

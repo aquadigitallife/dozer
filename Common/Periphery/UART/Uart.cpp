@@ -2,18 +2,21 @@
 
 #define sbiSTREAM_BUFFER_TRIGGER_LEVEL_1	( ( BaseType_t ) 1 )
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 void DMA1_Stream3_IRQHandler(void) __attribute__((interrupt));
 void USART3_IRQHandler(void) __attribute__((interrupt));
-}
+
+#ifdef __cplusplus
+};
+#endif
 
 /* The stream buffer that is used to send data from an interrupt to the task. */
 static StreamBufferHandle_t BLEStreamBuffer = NULL;
 
-
-void BLEUartTx(uint32_t len, uint8_t *data);
-
-void InitBLEUartEngine(void)
+static void InitBLEUartEngine(void)
 {
   /* Configure Tx Pin as : Alternate function, High Speed, Push pull, Pull up */
   LL_GPIO_SetPinMode(GPIOD, LL_GPIO_PIN_8, LL_GPIO_MODE_ALTERNATE);
@@ -37,7 +40,6 @@ void InitBLEUartEngine(void)
   /* (2) Enable USART3 peripheral clock and clock source ****************/
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART3);
 
-
   /* (3) Configure USART3 functional parameters ********************************/
   
   /* Disable USART prior modifying configuration registers */
@@ -58,13 +60,7 @@ void InitBLEUartEngine(void)
   /* Reset value is LL_USART_OVERSAMPLING_16 */
   // LL_USART_SetOverSampling(USART2, LL_USART_OVERSAMPLING_16);
 
-  /* Set Baudrate to 115200 using APB frequency set to 500000000 Hz */
-  /* Frequency available for USART peripheral can also be calculated through LL RCC macro */
-  /* Ex :
-      Periphclk = LL_RCC_GetUSARTClockFreq(Instance); or LL_RCC_GetUARTClockFreq(Instance); depending on USART/UART instance
-  
-      In this example, Peripheral Clock is expected to be equal to 500000000 Hz => equal to SystemCoreClock/2
-  */
+  /* Set Baudrate to 115200 using APB frequency set to SystemCoreClock/4 Hz */
   LL_USART_SetBaudRate(USART3, SystemCoreClock/4, LL_USART_OVERSAMPLING_16, 115200); 
 
   /* (4) Enable USART3 **********************************************************/
@@ -76,7 +72,7 @@ void InitBLEUartEngine(void)
 
 }
 
-void InitBLEUartDMA(void)
+static void InitBLEUartDMA(void)
 {
 	/* (1) Enable the clock of DMA2 */
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1); 
@@ -145,8 +141,8 @@ void BLEUartTx(uint32_t len, uint8_t *data)
 {
   while (LL_DMA_IsActiveFlag_TC3(DMA1)) taskYIELD();
 
-  WRITE_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->M0AR, (uint32_t)data);
-  MODIFY_REG(((DMA_Stream_TypeDef*)((uint32_t)((uint32_t)DMA1 + STREAM_OFFSET_TAB[LL_DMA_STREAM_3])))->NDTR, DMA_SxNDT, len);
+  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_3, (uint32_t)data);
+  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_3, len);
 
   // Enable DMA TX Request
   LL_USART_EnableDMAReq_TX(USART3);

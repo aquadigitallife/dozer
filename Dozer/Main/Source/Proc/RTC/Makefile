@@ -1,20 +1,17 @@
-TOPDIR = ../../../..
+TOPDIR = ../../../../..
 
-SUBDIRS = BLE
+SUBDIRS =
 
 CSRCS =
 
 CXXSRCS = \
-	Flash.cpp \
-	LED.cpp \
-	WDG.cpp \
-	Buttons.cpp
+	rtc.cpp
 	
 INCDIRS = \
-../../Header \
-../../Header/Global \
-../../Header/System \
-../../Header/BLE \
+../../../Header \
+../../../Header/Global \
+../../../Header/System \
+../../../Header/RTC \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/CMSIS \

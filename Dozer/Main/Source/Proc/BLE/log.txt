@@ -1,0 +1,60 @@
+21:10:39,0893	1	gecko_cmd_system_get_bt_address	
+21:10:39,0915	4	gecko_rsp_system_get_bt_address	  address:d0:cf:5e:0d:95:b7
+21:10:58,0291	1	gecko_cmd_le_gap_start_advertising	  handle:       0 (0x00)  discover:       2 (0x02)  connect:       2 (0x02)
+21:10:58,0297	4	gecko_rsp_le_gap_start_advertising	  result:0x0000 'Command completed succesfully'
+21:12:26,0812	3	gecko_cmd_system_reset(0)
+21:12:26,0847	0	gecko_evt_system_boot	  major:       2 (0x0002)  minor:      11 (0x000b)  patch:       0 (0x0000)  build:     188 (0x00bc)  bootloader:       0 (0x00000000)  hw:       1 (0x0001)  hash:1787761408 (0x6a8f1300)
+21:13:19,0258	1	gecko_cmd_le_gap_start_advertising	  handle:       0 (0x00)  discover:       2 (0x02)  connect:       2 (0x02)
+21:13:19,0263	4	gecko_rsp_le_gap_start_advertising	  result:0x0000 'Command completed succesfully'
+21:14:26,0911	3	gecko_cmd_system_reset(0)
+21:14:26,0957	0	gecko_evt_system_boot	  major:       2 (0x0002)  minor:      11 (0x000b)  patch:       0 (0x0000)  build:     188 (0x00bc)  bootloader:       0 (0x00000000)  hw:       1 (0x0001)  hash:1787761408 (0x6a8f1300)
+21:15:22,0491	3	gecko_cmd_le_gap_set_mode(2,2)
+21:15:22,0498	4	gecko_rsp_le_gap_set_mode	  result:0x0000 'Command completed succesfully'
+21:16:25,0198	3	gecko_cmd_system_reset(0)
+21:16:25,0231	0	gecko_evt_system_boot	  major:       2 (0x0002)  minor:      11 (0x000b)  patch:       0 (0x0000)  build:     188 (0x00bc)  bootloader:       0 (0x00000000)  hw:       1 (0x0001)  hash:1787761408 (0x6a8f1300)
+21:16:49,0262	3	gecko_cmd_le_gap_set_adv_parameters(160, 160, 7)
+21:16:49,0271	4	gecko_rsp_le_gap_set_adv_parameters	  result:0x0000 'Command completed succesfully'
+21:17:17,0452	2	gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable) is an invalid command.
+21:17:45,0437	3	gecko_cmd_le_gap_set_mode(2, 2)
+21:17:45,0445	4	gecko_rsp_le_gap_set_mode	  result:0x0000 'Command completed succesfully'
+
+
+
+Смартфон начинет соединение
+21:18:46,0963	0	gecko_evt_le_connection_opened	  address:4a:c6:1f:2e:89:8f  address_type:       1 (0x01)  master:       0 (0x00)  connection:       1 (0x01)  bonding:     255 (0xff)  advertiser:       0 (0x00)
+21:18:46,0969	0	gecko_evt_le_connection_parameters	  connection:       1 (0x01)  interval:      39 (0x0027)  latency:       0 (0x0000)  timeout:    2000 (0x07d0)  security_mode:       0 (0x00)  txsize:      27 (0x001b)
+21:18:46,0969	0	gecko_evt_le_connection_phy_status	  connection:       1 (0x01)  phy:       1 (0x01)
+21:18:47,0095	0	gecko_evt_gatt_mtu_exchanged	  connection:       1 (0x01)  mtu:     247 (0x00f7)
+21:18:47,0499	0	gecko_evt_le_connection_parameters	  connection:       1 (0x01)  interval:       6 (0x0006)  latency:       0 (0x0000)  timeout:    2000 (0x07d0)  security_mode:       0 (0x00)  txsize:      27 (0x001b)
+21:18:48,0639	0	gecko_evt_le_connection_parameters	  connection:       1 (0x01)  interval:      39 (0x0027)  latency:       0 (0x0000)  timeout:    2000 (0x07d0)  security_mode:       0 (0x00)  txsize:      27 (0x001b)
+21:18:49,0201	0	gecko_evt_le_connection_parameters	  connection:       1 (0x01)  interval:       6 (0x0006)  latency:       0 (0x0000)  timeout:    2000 (0x07d0)  security_mode:       0 (0x00)  txsize:      27 (0x001b)
+21:18:50,0266	0	gecko_evt_le_connection_parameters	  connection:       1 (0x01)  interval:      39 (0x0027)  latency:       0 (0x0000)  timeout:    2000 (0x07d0)  security_mode:       0 (0x00)  txsize:      27 (0x001b)
+
+indicate
+21:19:45,0896	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:      17 (0x0011)  status_flags:       1 (0x01)  client_config_flags:       2 (0x0002)
+
+write
+21:20:13,0146	0	gecko_evt_gatt_server_attribute_value	  connection:       1 (0x01)  attribute:      17 (0x0011)  att_opcode:      18 (0x12)  offset:       0 (0x0000)  value:e307010c0e1f00
+
+notify on
+21:22:12,0968	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     149 (0x0095)  status_flags:       1 (0x01)  client_config_flags:       1 (0x0001)
+
+notify off
+21:23:26,0920	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     143 (0x008f)  status_flags:       1 (0x01)  client_config_flags:       0 (0x0000)
+
+notify on
+21:23:27,0119	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     143 (0x008f)  status_flags:       1 (0x01)  client_config_flags:       1 (0x0001)
+
+notify off
+21:23:29,0990	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     143 (0x008f)  status_flags:       1 (0x01)  client_config_flags:       0 (0x0000)
+
+notify on
+21:23:33,0256	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     143 (0x008f)  status_flags:       1 (0x01)  client_config_flags:       1 (0x0001)
+
+notify off
+21:23:36,0132	0	gecko_evt_gatt_server_characteristic_status	  connection:       1 (0x01)  characteristic:     143 (0x008f)  status_flags:       1 (0x01)  client_config_flags:       0 (0x0000)
+
+
+
+
+

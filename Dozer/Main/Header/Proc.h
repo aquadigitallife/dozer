@@ -23,4 +23,5 @@ int32_t BLEUartPeek(void);
 
 void BLEProc(void *Param);
 
-
+void Init_I2C(void);
+void I2C(uint8_t dev, uint8_t addr, uint32_t len, const void* data);

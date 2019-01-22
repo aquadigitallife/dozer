@@ -6,22 +6,34 @@ void FlashProc(void *Param);
 void WDG_TaskProc(void *Param);
 void ResetWatchdog(uint32_t &LastResetTime, const uint8_t TaskID, const uint32_t Time, const uint8_t Param, const bool Force = false);
 
-
-//void InitSM1(uint32_t period);
-//void StartSM1(bool dir);
-//void StopSM1(void);
+/*-----------------------Заслонка, диспенсер-------------------*/
 void Motor0Proc(void *Param);
 void Motor0Cycle(void *Param);
 void Motor1Proc(void *Param);
-
+/*-------------------------Опрос кнопок-------------------------*/
 void ButtonsProc(void *Param);
-
+/*-----------------------------UART------------------------------*/
 StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes);
 void BLEUartTx(uint32_t len, uint8_t *data);
 int32_t BLEUartRx(uint32_t len, uint8_t *data);
 int32_t BLEUartPeek(void);
+/*------------------------------BLE------------------------------*/
+struct ble_date_time
+{
+	uint16_t year;
+	uint8_t month;
+	uint8_t day;
+	uint8_t hours;
+	uint8_t minutes;
+	uint8_t seconds;
+} __packed;
 
+void rtc_update_ble(struct ble_date_time *arg);
 void BLEProc(void *Param);
-
+/*------------------------------I2C-----------------------------*/
 void Init_I2C(void);
-void I2C(uint8_t dev, uint8_t addr, uint32_t len, const void* data);
+
+template <typename T>
+BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);
+/*-----------------------------RTC-------------------------------*/
+void RTCProc(void *Param);

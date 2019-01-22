@@ -1,18 +1,17 @@
 #include "Global.h"
 
 /* I2C SPEEDCLOCK define to max value: 400 KHz */
-#define I2C_SPEEDCLOCK                  400000
-#define I2C_DUTYCYCLE                   LL_I2C_DUTYCYCLE_2
+#define I2C_SPEEDCLOCK		200000
+#define I2C_DUTYCYCLE		LL_I2C_DUTYCYCLE_2
 
-#define I2C_WR_COMPLETE		0x00000001UL
-#define I2C_RD_COMPLETE		0x00000002UL
-#define I2C_ERR_COMPLETE	0x00000004UL
+#define I2C_COMPLETE		0x00000001UL
+#define I2C_ERROR			0x00000002UL
 
 /**
   * @brief Master Transfer Request Direction
   */
-#define I2C_REQUEST_WRITE                       0x00
-#define I2C_REQUEST_READ                        0x01
+#define I2C_REQUEST_WRITE	0x00
+#define I2C_REQUEST_READ	0x01
 
 
 #ifdef __cplusplus
@@ -26,6 +25,8 @@ void I2C3_ER_IRQHandler(void) __attribute__((interrupt));
 #ifdef __cplusplus
 };
 #endif
+
+SemaphoreHandle_t i2c_lock;
 
 __IO uint8_t  ubMasterRequestDirection  = 0;
 __IO uint8_t  ubMasterNbDataToReceive   = 1;
@@ -94,20 +95,24 @@ void I2C3_EV_IRQHandler(void)
 void I2C3_ER_IRQHandler(void)
 {
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   // Call Error function
 	LL_I2C_ClearFlag_BERR(I2C3);
 	LL_I2C_ClearFlag_AF(I2C3);
 	LL_I2C_ClearFlag_ARLO(I2C3);
 	
+//	LL_I2C_ClearFlag_OVR(I2C3);
+	
 	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_4);
 	LL_DMA_ClearFlag_HT4(DMA1);
     LL_DMA_ClearFlag_TC4(DMA1);
+	
 	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
 	LL_DMA_ClearFlag_HT2(DMA1);
     LL_DMA_ClearFlag_TC2(DMA1);
 
 	LL_I2C_GenerateStopCondition(I2C3);
-	xTaskNotifyFromISR( xHandlingTask, I2C_ERR_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+	xTaskNotifyFromISR( xHandlingTask, I2C_ERROR, eSetBits, &xHigherPriorityTaskWoken );
 	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
@@ -141,9 +146,13 @@ void DMA1_Stream4_IRQHandler(void)
 			LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);
 			LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, ubMasterNbDataToReceive);
 			ubMasterNbDataToReceive = 0;
+			
+//			LL_I2C_EnableDMAReq_TX(I2C3);
+//			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+
 		} else {
 			LL_I2C_GenerateStopCondition(I2C3);
-			xTaskNotifyFromISR( xHandlingTask, I2C_WR_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
 			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 			return;
 		}
@@ -166,7 +175,7 @@ void DMA1_Stream2_IRQHandler(void)
 
 		LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
 		LL_I2C_GenerateStopCondition(I2C3);
-		xTaskNotifyFromISR( xHandlingTask, I2C_RD_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+		xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
@@ -174,7 +183,7 @@ void DMA1_Stream2_IRQHandler(void)
 static void Configure_DMA(void)
 {
 	/* (2) Configure NVIC for DMA1_Stream5 and DMA1_Stream2 */
-	NVIC_SetPriority(DMA1_Stream4_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_SetPriority(DMA1_Stream4_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);
 	NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   
 	NVIC_SetPriority(DMA1_Stream2_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+4);
@@ -256,14 +265,14 @@ void Configure_I2C_Master(void)
 		*  - Set priority for I2C3_EV_IRQn
 		*  - Enable I2C3_EV_IRQn
 	*/
-	NVIC_SetPriority(I2C3_EV_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);  
+	NVIC_SetPriority(I2C3_EV_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+5);  
 	NVIC_EnableIRQ(I2C3_EV_IRQn);
 
 	/* Configure Error IT:
 		*  - Set priority for I2C3_ER_IRQn
 		*  - Enable I2C3_ER_IRQn
 	*/
-	NVIC_SetPriority(I2C3_ER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);  
+	NVIC_SetPriority(I2C3_ER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+5);  
 	NVIC_EnableIRQ(I2C3_ER_IRQn);
 
 	/* (4) Configure I2C3 functional parameters ********************************/
@@ -318,14 +327,19 @@ void Configure_I2C_Master(void)
 
 void Init_I2C(void)
 {
+	i2c_lock = xSemaphoreCreateMutex();
 	Configure_I2C_Master();
 	Configure_DMA();
 }
 
-void I2C(uint8_t dev, uint8_t addr, uint32_t len, const void* data)
+template <typename T>
+BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data)
 {
 	uint32_t ulNotifiedValue;
-	static uint8_t reg_addr;
+	static T reg_addr;
+	
+	if (xSemaphoreTake( i2c_lock, portMAX_DELAY ) == pdFAIL) return pdFAIL;
+	
 	reg_addr = addr;
 	device_addr = dev & ~I2C_REQUEST_READ;
 	ubDirection = dev & I2C_REQUEST_READ;
@@ -335,7 +349,7 @@ void I2C(uint8_t dev, uint8_t addr, uint32_t len, const void* data)
 	ubMasterNbDataToReceive = len;
 	// (1) Configure DMA parameters for Command Code transfer *******************
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, 1);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, sizeof(T));
 	// (2) Enable DMA transfer **************************************************
 	LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
 	// (3) Prepare acknowledge for Master data reception ************************
@@ -348,13 +362,21 @@ void I2C(uint8_t dev, uint8_t addr, uint32_t len, const void* data)
 	// Master Generate Start condition
 	LL_I2C_GenerateStartCondition(I2C3);
 
-	/* Wait to be notified of a DMA transfer complete interrupt. */
-/*	xResult =*/ xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
+	// Wait to be notified of a DMA transfer complete interrupt.
+	BaseType_t xResult = xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
 
-/*	if(( xResult != pdPASS ) || ((ulNotifiedValue & I2C_WRRD_COMPLETE) == 0)) {*/
-//		LED_ERR_ON;
-//	}
+	xSemaphoreGive( i2c_lock );
 
+	if( xResult == pdPASS ) {
+		switch (ulNotifiedValue) {
+			case I2C_COMPLETE:	return pdPASS;
+			case I2C_ERROR:
+			default:			return pdFAIL;
+		}
+	}
+	
+	return xResult;
 }
 
-
+template
+BaseType_t i2c<uint8_t>(uint8_t dev, uint8_t addr, uint32_t len, const void* data);

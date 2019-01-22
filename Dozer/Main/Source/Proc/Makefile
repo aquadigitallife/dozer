@@ -1,6 +1,8 @@
 TOPDIR = ../../../..
 
-SUBDIRS = BLE
+SUBDIRS = \
+	BLE \
+	RTC
 
 CSRCS =
 

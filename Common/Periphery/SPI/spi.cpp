@@ -14,15 +14,6 @@ void EXTI15_10_IRQHandler(void) __attribute__((interrupt));
 
 static TaskHandle_t xHandlingTask = NULL;
 
-/*
-void EXTI15_10_IRQHandler(void) {
-	if(LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_12) != RESET)
-	{
-		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_12);
-
-	}
-}
-*/
 void DMA2_Stream6_IRQHandler(void)
 {
 	if(LL_DMA_IsActiveFlag_TC6(DMA2)) {

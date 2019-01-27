@@ -102,20 +102,15 @@ void Motor0Proc(void *Param)
 
 void Motor0Cycle(void *Param)
 {
-//	uint8_t *enable = (uint8_t*)Param;
 	InitSM0(0x400);
 	
 	while (1) {
 		StopSM0();
 		vTaskSuspend( NULL );
-//		while (*enable == 0) ;
-//		for (;;) {
-			StartSM0(1);
-			vTaskDelay(MS_TO_TICK(2000));
-			StartSM0(0);
-			vTaskDelay(MS_TO_TICK(2000));
-//			if (*enable == 0) break;
-//		}
+		StartSM0(1);
+		vTaskDelay(MS_TO_TICK(2000));
+		StartSM0(0);
+		vTaskDelay(MS_TO_TICK(2000));
 	}
 }
 
@@ -197,40 +192,53 @@ void StopSM1(void)
 //	LED_SM1_OFF;
 }
 
+uint8_t motor1_on = 0;
+double speed = 65535.0;
+
 void Motor1Proc(void *Param)
 {
-	uint8_t *enable = (uint8_t*)Param;
-	
-	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, enable, TASK_PRI_LED, &Motor0CycleHandle);
+	extern double flt10, th;
+	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, NULL, TASK_PRI_LED, &Motor0CycleHandle);
 	
 	InitSM1(65535);
 	while (1) {
-		double i = 65535.0;
+restart:
+		speed = 65535.0;
 		StopSM1();
-		while (*enable == 0) vTaskSuspend( NULL );
+		while (motor1_on == 0) vTaskSuspend( NULL );
+		if (flt10 <= th) continue;
 		StartSM1(0); 
 		for (;;) {
 			vTaskResume( Motor0CycleHandle );
 			for (;;) {
 				double d;
-				SetSpeedSM1((uint32_t)i);
+				SetSpeedSM1((uint32_t)speed);
 				vTaskDelay(MS_TO_TICK(10));
-				if (i > 256.0) d = (i - 128.0)/64; else d = (i - 128.0)/128.0;
+				if (speed > 256.0) d = (speed - 128.0)/64; else d = (speed - 128.0)/128.0;
 				if (d < 0.5) break;
-				i = i - d;
+				speed = speed - d;
 			}
 
 			vTaskDelay(MS_TO_TICK(2000));
 			
 			for (;;) {
 				double d;
-				SetSpeedSM1((uint32_t)i);
+				SetSpeedSM1((uint32_t)speed);
 				vTaskDelay(MS_TO_TICK(10));
-				if (i >= 512.0) d = i/64.0; else d = i/256.0;
-				i = i + d;
-				if (i >= 2048.0) { i = 2048.0; break;}
+				if (speed >= 512.0) d = speed/64.0; else d = speed/256.0;
+				speed = speed + d;
+				if (speed >= 10000.0) break;
 			}
-			if (*enable == 0) break;
+			StopSM1();
+			speed = 65535.0;
+			for (int i = 0; i < 10; i++) {
+				if (motor1_on == 0) goto restart;
+				vTaskDelay(MS_TO_TICK(1000));
+			}
+			if (flt10 <= th) break;
+			SetSpeedSM1((uint32_t)speed);
+			StartSM1(0); 
+//			if (motor1_on == 0) break;
 		}
 	}
 

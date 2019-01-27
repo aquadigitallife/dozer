@@ -3,7 +3,7 @@
 #define BUTTON_QUEUE_LENGTH    5
 #define BUTTON_ITEM_SIZE       sizeof( uint8_t )
 
-static TaskHandle_t Motor1TaskHandle;
+TaskHandle_t Motor1TaskHandle;
 
 
 bool isMotorsSuspend(void)
@@ -14,7 +14,7 @@ bool isMotorsSuspend(void)
 
 void ButtonsProc(void *Param)
 {
-	uint8_t motor1_on = 0;
+	extern uint8_t motor1_on;
 	TaskHandle_t Motor0TaskHandle;
 	
 	QueueHandle_t SM0_Queue = xQueueCreate ( BUTTON_QUEUE_LENGTH, BUTTON_ITEM_SIZE );
@@ -22,7 +22,7 @@ void ButtonsProc(void *Param)
 	configASSERT ( SM0_Queue );
 
 	xTaskCreate(Motor0Proc, "" , configMINIMAL_STACK_SIZE + 400, SM0_Queue, TASK_PRI_LED, &Motor0TaskHandle);
-	xTaskCreate(Motor1Proc, "" , configMINIMAL_STACK_SIZE + 400, &motor1_on, TASK_PRI_LED, &Motor1TaskHandle);
+	xTaskCreate(Motor1Proc, "" , configMINIMAL_STACK_SIZE + 400, NULL, TASK_PRI_LED, &Motor1TaskHandle);
 	
 	while (1) {
 		static uint8_t pre_sm1 = 0;

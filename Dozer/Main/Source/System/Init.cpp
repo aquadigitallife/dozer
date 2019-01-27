@@ -106,7 +106,7 @@ static inline void Init_RTOS()
 
 	Config_Queue    = xQueueCreate(1, sizeof(STR_CONFIG));
 	RTC_Queue    = xQueueCreate(1, sizeof(struct ble_date_time));
-	AD7799_Queue    = xQueueCreate(10, sizeof(uint8_t));
+	AD7799_Queue    = xQueueCreate(10, sizeof(uint32_t));
 
 	FlashExist_Sem = xSemaphoreCreateBinary();
 

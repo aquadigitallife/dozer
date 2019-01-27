@@ -61,6 +61,8 @@ const uint32_t FW_VER = 0x03000600UL;
 #define ADC_EXT_CS4_DESELECT	do {GPIOB->BSRR = GPIO_BSRR_BS_5;} while (0)
 #define IS_ADC_EXT_CS4_SELECT	((GPIOB->IDR & (1 <<  5)) == 0)
 
+#define IS_ADC_DATA_RDY			((GPIOG->IDR & (1 << 12)) == 0)
+
 #define AD7799_CS_DESELECT		ADC_EXT_CS4_DESELECT
 #define AD7799_CS_SELECT		ADC_EXT_CS4_SELECT
 #define IS_AD7799_CS_SELECT		IS_ADC_EXT_CS4_SELECT
@@ -125,6 +127,7 @@ const uint32_t FW_VER = 0x03000600UL;
 #define SM1_FORWARD           do {GPIOE->BSRR = GPIO_BSRR_BR_0;} while (0)
 #define SM1_BACKWARD          do {GPIOE->BSRR = GPIO_BSRR_BS_0;} while (0)
 
+#define IS_SM1_ENABLE		  ((GPIOE->IDR & (1 << 1)) == 0)
 
 #ifdef DEBUG_TRACE
 

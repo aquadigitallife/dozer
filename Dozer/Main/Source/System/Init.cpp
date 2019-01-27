@@ -93,6 +93,8 @@ static inline void Init_RTOS()
 	xTaskCreate(ButtonsProc, cpTASK[2] , configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &ButtonsTaskHandle);
 	xTaskCreate(BLEProc, cpTASK[3] , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_LED, &BLETaskHandle);
 	xTaskCreate(RTCProc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &RTCTaskHandle);
+	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &AD7799TaskHandle);
+	
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);
 //	xTaskCreate(GyroTaskProc  , cpTASK[4] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_GYRO , &GyroTaskHandle);
@@ -103,6 +105,8 @@ static inline void Init_RTOS()
 	configASSERT(WDG_TaskHandle);
 
 	Config_Queue    = xQueueCreate(1, sizeof(STR_CONFIG));
+	RTC_Queue    = xQueueCreate(1, sizeof(struct ble_date_time));
+	AD7799_Queue    = xQueueCreate(10, sizeof(uint8_t));
 
 	FlashExist_Sem = xSemaphoreCreateBinary();
 
@@ -166,6 +170,9 @@ static inline void Init_GPIO()
 	FLASH2_DESELECT0;
 	FLASH2_DESELECT1;
 	
+	ADC_TENSO_CS_DESELECT;
+	ADC_EXT_CS4_DESELECT;
+	
 	PWR_SM0_EN;
 	SM0_WAKEUP;
 	SM0_DISABLE;
@@ -183,12 +190,12 @@ static inline void Init_GPIO()
 	// PF9  - активность ШД0
 	// PF8  - активность ШД1
 	
-	// PB2 - пульс
+	// PB2 - пульс PB5, PB6 - CS для ad7799
 	LL_GPIO_StructInit(&port);
-	port.Pin   = LL_GPIO_PIN_2;
+	port.Pin   = LL_GPIO_PIN_2 | LL_GPIO_PIN_5 | LL_GPIO_PIN_6;
 	port.Mode  = LL_GPIO_MODE_OUTPUT;
 	port.OutputType  = LL_GPIO_OUTPUT_PUSHPULL;
-	port.Speed = LL_GPIO_SPEED_FREQ_LOW;
+	port.Speed = LL_GPIO_SPEED_FREQ_HIGH;
 	LL_GPIO_Init(GPIOB, &port);
 	// DO_CTRL1,2
 	port.Pin   = LL_GPIO_PIN_14 | LL_GPIO_PIN_15;
@@ -282,6 +289,7 @@ void Init()
 
 	Init_GPIO();
 	Init_I2C();
+	Init_SPI();
 	// Настройка задач, очередей и прочего
 	Init_RTOS();
 

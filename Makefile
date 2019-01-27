@@ -9,6 +9,7 @@ SUBDIRS += Common/Periphery/EFlash
 SUBDIRS += Common/Periphery/Motors
 SUBDIRS += Common/Periphery/UART
 SUBDIRS += Common/Periphery/I2C
+SUBDIRS += Common/Periphery/SPI
 SUBDIRS += Common/System
 SUBDIRS += Dozer/Main/Source
 	

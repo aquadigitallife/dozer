@@ -36,4 +36,13 @@ void Init_I2C(void);
 template <typename T>
 BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);
 /*-----------------------------RTC-------------------------------*/
+void ble_update_rtc(const struct ble_date_time *arg);
 void RTCProc(void *Param);
+/*------------------------------SPI------------------------------*/
+void start_SPI(void);
+void set_spi_handling_task(void);
+void clear_spi_handling_task(void);
+void Init_SPI(void);
+/*-----------------------------AD7799----------------------------*/
+void AD7799Proc(void *Param);
+

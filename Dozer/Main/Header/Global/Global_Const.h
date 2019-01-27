@@ -52,6 +52,20 @@ const uint32_t FW_VER = 0x03000600UL;
 #define FLASH2_SELECT1        FLASH_CS2_DN
 #define FLASH2_DESELECT1      FLASH_CS2_UP
 
+// SPI AD7799
+#define ADC_TENSO_CS_SELECT		do {GPIOB->BSRR = GPIO_BSRR_BR_6;} while (0)
+#define ADC_TENSO_CS_DESELECT	do {GPIOB->BSRR = GPIO_BSRR_BS_6;} while (0)
+#define IS_TENSO_CS_SELECT		((GPIOB->IDR & (1 <<  6)) == 0)
+
+#define ADC_EXT_CS4_SELECT		do {GPIOB->BSRR = GPIO_BSRR_BR_5;} while (0)
+#define ADC_EXT_CS4_DESELECT	do {GPIOB->BSRR = GPIO_BSRR_BS_5;} while (0)
+#define IS_ADC_EXT_CS4_SELECT	((GPIOB->IDR & (1 <<  5)) == 0)
+
+#define AD7799_CS_DESELECT		ADC_EXT_CS4_DESELECT
+#define AD7799_CS_SELECT		ADC_EXT_CS4_SELECT
+#define IS_AD7799_CS_SELECT		IS_ADC_EXT_CS4_SELECT
+
+
 // Дискретные входы
 #define POWER_GOOD            ((GPIOA->IDR & (1 <<  9)) == 0)
 #define DI_CTRL1              ((GPIOA->IDR & (1 << 15)) == 1)

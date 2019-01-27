@@ -5,10 +5,12 @@
 /* BG stack headers */
 #include "bg_types.h"
 #include "gecko_bglib.h"
+#include "gatt_db.h"
+
+#include "i2c.h"
 
 BGLIB_DEFINE();
 
-static SemaphoreHandle_t ble_lock = NULL;
 // App booted flag
 static bool appBooted = false;
 
@@ -23,36 +25,39 @@ void BLEProc(void *Param)
 
 	InitBLEUart(BGLIB_MSG_MAX_PAYLOAD+4);
 	
-	ble_lock = xSemaphoreCreateMutex();
 
   /* Reset NCP to ensure it gets into a defined state.
    * Once the chip successfully boots, gecko_evt_system_boot_id event should be received. */
 	gecko_cmd_system_reset(0);
 	while (1) {
 		/* Check for stack event. */
-		if (xSemaphoreTake( ble_lock, portMAX_DELAY ) == pdFAIL) return;
 		evt = gecko_peek_event();
-		xSemaphoreGive( ble_lock );
-		if (NULL == evt) { taskYIELD(); continue;}
-
+		if (NULL != evt) {
 		// Run application and event handler.
-		appHandleEvents(evt);
-
+			appHandleEvents(evt);
+		}
+		taskYIELD();
+		if (RTC_Queue != NULL) {
+//			static uint8_t flag = 0;
+			struct ble_date_time rtc;
+			if (pdPASS == xQueueReceive(RTC_Queue, &rtc, 0)) {
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_date_time, 0x0000, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
+				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_date_time, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
+//				if (flag) LED_ERR_ON; else LED_ERR_OFF; flag ^= 0xFF;
+			}
+		}
+		taskYIELD();
+		if (AD7799_Queue != NULL) {
+			uint8_t ad_id[6] = {0,0,0,0,0,0};
+			if (pdPASS == xQueueReceive(AD7799_Queue, &ad_id[0], 0)) {
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_current_doze, 0x0000, sizeof(ad_id), (const uint8_t*)&ad_id);
+				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_current_doze, sizeof(ad_id), (const uint8_t*)&ad_id);
+			}
+		}
 		taskYIELD();
 	}
 }
 
-void rtc_update_ble(struct ble_date_time *arg)
-{
-	if (ble_lock == NULL) return;
-	if (appBooted == false) return;
-	if (xSemaphoreTake( ble_lock, portMAX_DELAY ) == pdFAIL) return;
-	
-	gecko_cmd_gatt_server_write_attribute_value(17, 0x0000, sizeof(struct ble_date_time), (const uint8_t*)arg);
-	gecko_cmd_gatt_server_send_characteristic_notification(0xFF, 17, sizeof(struct ble_date_time), (const uint8_t*)arg);
-
-	xSemaphoreGive( ble_lock );
-}
 /***********************************************************************************************//**
  *  \brief  Event handler function.
  *  \param[in] evt Event pointer.
@@ -69,8 +74,6 @@ void appHandleEvents(struct gecko_cmd_packet *evt)
     return;
   }
 
-	if (xSemaphoreTake( ble_lock, portMAX_DELAY ) == pdFAIL) return;
-	
   /* Handle events */
   switch (BGLIB_MSG_ID(evt->header)) {
     case gecko_evt_system_boot_id:
@@ -95,9 +98,20 @@ void appHandleEvents(struct gecko_cmd_packet *evt)
       gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable);
 
       break;
-
+	  
+	case gecko_evt_gatt_server_attribute_value_id:
+		switch (evt->data.evt_gatt_server_attribute_value.attribute) {
+			case gattdb_date_time:
+				switch (evt->data.evt_gatt_server_attribute_value.att_opcode) {
+					case gatt_write_request:
+						ble_update_rtc((const struct ble_date_time*)evt->data.evt_gatt_server_attribute_value.value.data);
+					break;
+				}
+			break;
+		}
+	break;
+		
     default:
       break;
   }
-  xSemaphoreGive( ble_lock );
 }

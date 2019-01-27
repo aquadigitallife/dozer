@@ -21,6 +21,7 @@ GL_EXP TaskHandle_t ButtonsTaskHandle;
 GL_EXP TaskHandle_t Motor0CycleHandle;
 GL_EXP TaskHandle_t BLETaskHandle;
 GL_EXP TaskHandle_t RTCTaskHandle;
+GL_EXP TaskHandle_t AD7799TaskHandle;
 GL_EXP TaskHandle_t WDG_TaskHandle;
 
 GL_EXP QueueHandle_t FlashCmd_Queue; // Очередь команд к Flash
@@ -28,6 +29,8 @@ GL_EXP QueueHandle_t WDG_Cmd_Queue;  // Очередь команд к стор�
 
 GL_EXP QueueHandle_t BatInfo_Queue;  // Очередь с информацией о аккумуляторе
 GL_EXP QueueHandle_t Config_Queue;   // Очередь с настройками и основной конфигурацией устройства
+GL_EXP QueueHandle_t RTC_Queue;
+GL_EXP QueueHandle_t AD7799_Queue;
 
 GL_EXP SemaphoreHandle_t FlashExist_Sem; // Сигнал о корректной инициализации flash памяти
 

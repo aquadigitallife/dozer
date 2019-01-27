@@ -81,8 +81,16 @@ void I2C3_EV_IRQHandler(void)
 		// Clear ADDR flag value in ISR register 
 		LL_I2C_ClearFlag_ADDR(I2C3);
 	} else if (LL_I2C_IsActiveFlag_BTF(I2C3) && (ubDirection == I2C_REQUEST_WRITE)) {
-  		LL_I2C_EnableDMAReq_TX(I2C3);
-		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+		if ( ubMasterNbDataToReceive ) {
+			ubMasterNbDataToReceive = 0;
+			LL_I2C_EnableDMAReq_TX(I2C3);
+			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+		} else {
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			LL_I2C_GenerateStopCondition(I2C3);
+			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		}
 	}
 }
 
@@ -123,7 +131,6 @@ void I2C3_ER_IRQHandler(void)
   */
 void DMA1_Stream4_IRQHandler(void)
 {
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
 	if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
 		LL_DMA_ClearFlag_HT4(DMA1);
@@ -145,16 +152,9 @@ void DMA1_Stream4_IRQHandler(void)
 		} else if (ubMasterNbDataToReceive) {
 			LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);
 			LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, ubMasterNbDataToReceive);
-			ubMasterNbDataToReceive = 0;
 			
 //			LL_I2C_EnableDMAReq_TX(I2C3);
 //			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
-
-		} else {
-			LL_I2C_GenerateStopCondition(I2C3);
-			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
-			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-			return;
 		}
 		/* (6) Prepare acknowledge for Master data reception ************************/
 		LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);

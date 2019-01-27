@@ -15,22 +15,54 @@ struct rtc_time_struct {
 	uint8_t aging;
 	uint8_t temp_hi;
 	uint8_t temp_lo;
-} __packed rtc;
+} __packed;
+
+static struct rtc_time_struct rtc, rtcw;
 
 
 
 BaseType_t is_rtc_time_valid(struct rtc_time_struct *rtc)
 {
 	if (rtc->year < 0x19) return pdFAIL;
-	if (rtc->year > 0x19) return pdPASS;
-	if (rtc->month < 0x01) return pdFAIL;
-	if (rtc->month > 0x01) return pdPASS;
-	if (rtc->date < 0x12) return pdFAIL;
-	if (rtc->date > 0x12) return pdPASS;
-	if (rtc->hours < 0x14) return pdFAIL;
-	if (rtc->hours > 0x14) return pdPASS;
-	if (rtc->minutes < 0x31) return pdFAIL;
-	return pdPASS;
+	else {//return pdPASS;
+		if (rtc->month < 0x01) return pdFAIL;
+		else {//return pdPASS;
+			if (rtc->date < 0x12) return pdFAIL;
+			else {//return pdPASS;
+				if (rtc->hours < 0x14) return pdFAIL;
+				else {//return pdPASS;
+					if (rtc->minutes < 0x31) return pdFAIL;
+					else return pdPASS;
+				}
+			}
+		}
+	}
+}
+
+__STATIC_INLINE uint8_t bin2bcd(uint16_t arg)
+{
+	return (uint8_t)(((arg/10)<<4) + arg%10);
+}
+
+void ble_update_rtc(const struct ble_date_time *arg)
+{
+	uint16_t pyear = arg->year - 2000;
+	uint8_t centure = (uint8_t)(pyear/100);
+	
+	pyear = arg->year - 2000;
+	centure = (uint8_t)(pyear/100);
+	rtcw.year = bin2bcd(pyear%100);
+	rtcw.month = (centure << 7) + bin2bcd(arg->month);
+	rtcw.date = bin2bcd(arg->day);
+	rtcw.hours = bin2bcd(arg->hours);
+	rtcw.minutes = bin2bcd(arg->minutes);
+	rtcw.seconds = bin2bcd(arg->seconds);
+//	rtcw.alarms[0] = rtc.alarms[0];
+	if (arg->year != 2020) LED_WORK_ON;
+	i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtcw);
+	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
+	if (rtcw.year != 0x20)  LED_SD_BUSY_ON;
+	if (rtc.year != 0x20) LED_ERR_ON;
 }
 
 void RTCProc(void *Param)
@@ -47,7 +79,6 @@ void RTCProc(void *Param)
 		rtc.date = 0x12;
 		rtc.month = 0x01;
 		rtc.year = 0x19;
-		
 		i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtc);
 	}
 
@@ -70,7 +101,9 @@ void RTCProc(void *Param)
 				.minutes =	(uint8_t)(((rtc.minutes & 0xF0) >> 4)*10 + (rtc.minutes & 0x0F)),
 				.seconds =	(uint8_t)(((rtc.seconds & 0xF0) >> 4)*10 + (rtc.seconds & 0x0F))
 			};
-			rtc_update_ble(&ble);
+			if (RTC_Queue != NULL) {
+				xQueueSendToBack(RTC_Queue, &ble, 0);
+			}
 		}
 		vTaskDelay(MS_TO_TICK(50));
 	}

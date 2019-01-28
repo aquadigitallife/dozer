@@ -109,6 +109,8 @@ void Motor0Cycle(void *Param)
 		vTaskSuspend( NULL );
 		StartSM0(1);
 		vTaskDelay(MS_TO_TICK(2000));
+		StopSM0();
+		vTaskDelay(MS_TO_TICK(3000));
 		StartSM0(0);
 		vTaskDelay(MS_TO_TICK(2000));
 	}

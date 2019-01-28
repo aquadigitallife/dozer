@@ -58,11 +58,11 @@ void ble_update_rtc(const struct ble_date_time *arg)
 	rtcw.minutes = bin2bcd(arg->minutes);
 	rtcw.seconds = bin2bcd(arg->seconds);
 //	rtcw.alarms[0] = rtc.alarms[0];
-	if (arg->year != 2020) LED_WORK_ON;
+//	if (arg->year != 2020) LED_WORK_ON;
 	i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtcw);
 	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
-	if (rtcw.year != 0x20)  LED_SD_BUSY_ON;
-	if (rtc.year != 0x20) LED_ERR_ON;
+//	if (rtcw.year != 0x20)  LED_SD_BUSY_ON;
+//	if (rtc.year != 0x20) LED_ERR_ON;
 }
 
 void RTCProc(void *Param)

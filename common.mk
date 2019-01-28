@@ -41,8 +41,8 @@ COMPILER_FLAGS = -O0 -g -finline \
 -DENABLE_SWD \
 -DUSE_FULL_LL_DRIVER
 
-CFLAGS = --std=gnu11 $(COMPILER_FLAGS) \
--Wstrict-prototypes
+CFLAGS = --std=gnu11 $(COMPILER_FLAGS)
+# -Wstrict-prototypes
 
 CXXFLAGS = --std=c++11 $(COMPILER_FLAGS)
 

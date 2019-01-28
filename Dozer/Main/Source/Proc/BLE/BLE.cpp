@@ -111,17 +111,17 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				}
 			break;
 			
-			case gattdb_feed_weight:
+			case gattdb_current_doze:
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {
 					extern double doze;
 					uint8_t att_store[6];
 					memcpy(att_store,
 					evt->data.evt_gatt_server_attribute_value.value.data,
 					evt->data.evt_gatt_server_attribute_value.value.len);
-					doze = (double)(*(int32_t*)(att_store));
+					doze = ((double)(*(int32_t*)(att_store)))*41.280;
 					if (doze == 100.0) LED_ERR_ON;
-					gecko_cmd_gatt_server_write_attribute_value(gattdb_feed_weight, 0x0000, sizeof(att_store), (const uint8_t*)att_store);
-					gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_feed_weight, sizeof(att_store), (const uint8_t*)att_store);
+//					gecko_cmd_gatt_server_write_attribute_value(gattdb_feed_weight, 0x0000, sizeof(att_store), (const uint8_t*)att_store);
+//					gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_feed_weight, sizeof(att_store), (const uint8_t*)att_store);
 				}
 			break;
 			

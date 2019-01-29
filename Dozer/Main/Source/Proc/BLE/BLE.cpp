@@ -146,6 +146,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 					extern double flt1000, flt10, flt0;
 						if ((flt10 - flt1000) > 100.0 || (flt1000 - flt10) > 100.0 ) flt1000 = flt10;
 						flt0 = flt1000;
+						ee_write((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
 				}
 		}
 	break;

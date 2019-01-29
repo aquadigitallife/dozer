@@ -31,7 +31,7 @@ dozer.elf: target
 	@$(LD) $(GLOBAL_LDFLAGS) -T $(LINKER_SCRIPT) $(wildcard .obj/*.o) -L$(LIBCDIR) -L$(LIBGCCDIR) -lc -lgcc -Map=$(basename $@).map -o $@
 
 debug: dozer.elf
-	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0" &
+	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt" &
 	sleep 3
 	$(GDB) -q -ex 'target remote localhost:3333' $<
 #	$(shell kill $(ps | grep openocd | sed 's/\s\+/ /g' | cut -d' ' -f2))

@@ -1,7 +1,7 @@
 #include "Global.h"
 
 /* I2C SPEEDCLOCK define to max value: 400 KHz */
-#define I2C_SPEEDCLOCK		200000
+#define I2C_SPEEDCLOCK		50000
 #define I2C_DUTYCYCLE		LL_I2C_DUTYCYCLE_2
 
 #define I2C_COMPLETE		0x00000001UL
@@ -30,6 +30,8 @@ SemaphoreHandle_t i2c_lock;
 
 __IO uint8_t  ubMasterRequestDirection  = 0;
 __IO uint8_t  ubMasterNbDataToReceive   = 1;
+__IO uint8_t  ubMasterTransferComplete  = 0;
+//__IO uint8_t  dmaComplete = 0;
 
 uint8_t device_addr;
 uint8_t ubDirection = 0;
@@ -45,54 +47,49 @@ TaskHandle_t xHandlingTask;
   */
 void I2C3_EV_IRQHandler(void)
 {
-	/* Check SB flag value in ISR register */
-	if(LL_I2C_IsActiveFlag_SB(I2C3)) {
-		/* Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a ubMasterRequestDirection request */
-		LL_I2C_TransmitData8(I2C3, device_addr | ubMasterRequestDirection);
-	}
-	/* Check ADDR flag value in ISR register */
-	else if(LL_I2C_IsActiveFlag_ADDR(I2C3)) {
-		// Verify the transfer direction 
-		if(LL_I2C_GetTransferDirection(I2C3) == LL_I2C_DIRECTION_READ) {
-
-			if(ubMasterNbDataToReceive == 1) {
-				// Prepare the generation of a Non ACKnowledge condition after next received byte 
-				LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
-
-				// Enable DMA transmission requests 
-				LL_I2C_EnableDMAReq_RX(I2C3);
-			} else if(ubMasterNbDataToReceive == 2) {
-				// Prepare the generation of a Non ACKnowledge condition after next received byte 
-				LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
-
-				// Enable Pos 
-				LL_I2C_EnableBitPOS(I2C3);
-			} else {
-				// Enable Last DMA bit 
-				LL_I2C_EnableLastDMA(I2C3);
-
-				// Enable DMA transmission requests 
-				LL_I2C_EnableDMAReq_RX(I2C3);
-			}
-		} else {
-			// Enable DMA transmission requests 
-			LL_I2C_EnableDMAReq_TX(I2C3);
-		}
-		// Clear ADDR flag value in ISR register 
-		LL_I2C_ClearFlag_ADDR(I2C3);
-	} else if (LL_I2C_IsActiveFlag_BTF(I2C3) && (ubDirection == I2C_REQUEST_WRITE)) {
-		if ( ubMasterNbDataToReceive ) {
-			ubMasterNbDataToReceive = 0;
-			LL_I2C_EnableDMAReq_TX(I2C3);
-			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
-		} else {
+  /* Check SB flag value in ISR register */
+  if(LL_I2C_IsActiveFlag_SB(I2C3))
+  {
+    /* Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a ubMasterRequestDirection request */
+    LL_I2C_TransmitData8(I2C3, device_addr | ubMasterRequestDirection);
+  }
+  /* Check ADDR flag value in ISR register */
+  else if(LL_I2C_IsActiveFlag_ADDR(I2C3))
+  {
+	  if (LL_I2C_GetTransferDirection(I2C3) == LL_I2C_DIRECTION_WRITE) {
+    /* Clear ADDR flag value in ISR register */
+		LL_I2C_EnableDMAReq_TX(I2C3);
+	  } else {
+		  if(ubMasterNbDataToReceive == 1) {
+			// Prepare the generation of a Non ACKnowledge condition after next received byte 
+			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
+		  }
+		  else if(ubMasterNbDataToReceive == 2) {
+			// Prepare the generation of a Non ACKnowledge condition after next received byte 
+			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
+			// Enable Pos
+			LL_I2C_EnableBitPOS(I2C3);
+		  } else {
+			LL_I2C_EnableLastDMA(I2C3);
+		  }
+		  LL_I2C_EnableDMAReq_RX(I2C3);
+	  }
+ 	  LL_I2C_ClearFlag_ADDR(I2C3);
+  }
+  else if (LL_I2C_IsActiveFlag_BTF(I2C3)) {
+	  if (ubDirection == I2C_REQUEST_READ) {	// read option
+		LL_I2C_GenerateStartCondition(I2C3);
+	  } else {
+		LL_I2C_GenerateStopCondition(I2C3);
+		if (xHandlingTask != NULL) {
 			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			LL_I2C_GenerateStopCondition(I2C3);
 			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
 			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 		}
-	}
+	  }
+  }
 }
+
 
 /**
   * Brief   This function handles I2C3 (Master) error interrupt request.
@@ -102,7 +99,7 @@ void I2C3_EV_IRQHandler(void)
 
 void I2C3_ER_IRQHandler(void)
 {
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
   // Call Error function
 	LL_I2C_ClearFlag_BERR(I2C3);
@@ -118,10 +115,12 @@ void I2C3_ER_IRQHandler(void)
 	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
 	LL_DMA_ClearFlag_HT2(DMA1);
     LL_DMA_ClearFlag_TC2(DMA1);
-
 	LL_I2C_GenerateStopCondition(I2C3);
-	xTaskNotifyFromISR( xHandlingTask, I2C_ERROR, eSetBits, &xHigherPriorityTaskWoken );
-	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	if (xHandlingTask != NULL) {
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		xTaskNotifyFromISR( xHandlingTask, I2C_ERROR, eSetBits, &xHigherPriorityTaskWoken );
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}
 }
 
 /**
@@ -132,33 +131,29 @@ void I2C3_ER_IRQHandler(void)
 void DMA1_Stream4_IRQHandler(void)
 {
 
-	if(LL_DMA_IsActiveFlag_TC4(DMA1)) {
-		LL_DMA_ClearFlag_HT4(DMA1);
-		LL_DMA_ClearFlag_TC4(DMA1);
+  if(LL_DMA_IsActiveFlag_TC4(DMA1))
+  {
+    LL_DMA_ClearFlag_TC4(DMA1);
 
-		LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_4);
-		if (ubDirection == I2C_REQUEST_READ) {
-			LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_2, (uint32_t)pdata);
-			LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_2, ubMasterNbDataToReceive);
-			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_2);
-
-			/* (7) Initiate a ReStart condition to the Slave device *********************/
-			/* Master Request direction READ */
-			ubMasterRequestDirection = I2C_REQUEST_READ;
-
-			/* Master Generate ReStart condition */
-			LL_I2C_GenerateStartCondition(I2C3);
-
-		} else if (ubMasterNbDataToReceive) {
-			LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);
-			LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, ubMasterNbDataToReceive);
-			
-//			LL_I2C_EnableDMAReq_TX(I2C3);
-//			LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+	if (ubDirection == I2C_REQUEST_READ) {	// read option
+		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_2, (uint32_t)pdata);
+		LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_2, ubMasterNbDataToReceive);
+		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_2);
+		ubMasterRequestDirection = I2C_REQUEST_READ;
+	} else {
+		if (ubMasterNbDataToReceive) {
+		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);
+		LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, ubMasterNbDataToReceive);
+		LL_I2C_EnableDMAReq_TX(I2C3);
+		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+		ubMasterNbDataToReceive = 0;
 		}
-		/* (6) Prepare acknowledge for Master data reception ************************/
-		LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);
 	}
+  }
+ /* else if(LL_DMA_IsActiveFlag_TE5(DMA1))
+  {
+    Transfer_Error_Callback();
+  }*/
 }
 
 /**
@@ -168,16 +163,20 @@ void DMA1_Stream4_IRQHandler(void)
   */
 void DMA1_Stream2_IRQHandler(void)
 {
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	
-	if(LL_DMA_IsActiveFlag_TC2(DMA1)) {
-		LL_DMA_ClearFlag_TC2(DMA1);
-
-		LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
-		LL_I2C_GenerateStopCondition(I2C3);
+  if(LL_DMA_IsActiveFlag_TC2(DMA1))
+  {
+    LL_DMA_ClearFlag_TC2(DMA1);
+	LL_I2C_GenerateStopCondition(I2C3);
+	if (xHandlingTask != NULL) {
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 		xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
+  }
+/*  else if(LL_DMA_IsActiveFlag_TE2(DMA1))
+  {
+    Transfer_Error_Callback();
+  }*/
 }
 
 static void Configure_DMA(void)
@@ -335,48 +334,48 @@ void Init_I2C(void)
 template <typename T>
 BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data)
 {
-	uint32_t ulNotifiedValue;
 	static T reg_addr;
-	
+	uint32_t ulNotifiedValue;
 	if (xSemaphoreTake( i2c_lock, portMAX_DELAY ) == pdFAIL) return pdFAIL;
 	
 	reg_addr = addr;
 	device_addr = dev & ~I2C_REQUEST_READ;
 	ubDirection = dev & I2C_REQUEST_READ;
 	pdata = data;
-	
+	ubMasterTransferComplete = 0;
 	xHandlingTask = xTaskGetCurrentTaskHandle();
-	ubMasterNbDataToReceive = len;
-	// (1) Configure DMA parameters for Command Code transfer *******************
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, sizeof(T));
-	// (2) Enable DMA transfer **************************************************
-	LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
-	// (3) Prepare acknowledge for Master data reception ************************
-	LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);
+  /* (1) Configure DMA parameters for Command Code transfer *******************/
+//  pMasterTransmitBuffer    = (uint32_t*)(&aCommandCode[ubMasterCommandIndex][0]);
+//  ubMasterNbDataToTransmit = sizeof(T);
 
-	// (4) Initiate a Start condition to the Slave device ***********************
-	// Master Request direction WRITE
-	ubMasterRequestDirection = I2C_REQUEST_WRITE;
+  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);
+  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, sizeof(T));
+  ubMasterNbDataToReceive = len;
+  /* (2) Enable DMA transfer **************************************************/
+ 		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
+   
+  /* (3) Prepare acknowledge for Master data reception ************************/
+  LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);
 
-	// Master Generate Start condition
-	LL_I2C_GenerateStartCondition(I2C3);
+  /* (4) Initiate a Start condition to the Slave device ***********************/
+  /* Master Request direction WRITE */
+  ubMasterRequestDirection = I2C_REQUEST_WRITE;
 
-	// Wait to be notified of a DMA transfer complete interrupt.
-	BaseType_t xResult = xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
+  /* Master Generate Start condition */
+  LL_I2C_GenerateStartCondition(I2C3);
+  
+  
+  xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, 100 );
+//  while(!ubMasterTransferComplete);
+//  ubMasterTransferComplete = 0;
 
 	xSemaphoreGive( i2c_lock );
 
-	if( xResult == pdPASS ) {
-		switch (ulNotifiedValue) {
-			case I2C_COMPLETE:	return pdPASS;
-			case I2C_ERROR:
-			default:			return pdFAIL;
-		}
-	}
 	
-	return xResult;
+	return pdPASS;
 }
 
 template
 BaseType_t i2c<uint8_t>(uint8_t dev, uint8_t addr, uint32_t len, const void* data);
+template
+BaseType_t i2c<uint16_t>(uint8_t dev, uint16_t addr, uint32_t len, const void* data);

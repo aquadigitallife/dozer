@@ -45,4 +45,12 @@ void clear_spi_handling_task(void);
 void Init_SPI(void);
 /*-----------------------------AD7799----------------------------*/
 void AD7799Proc(void *Param);
+/*-----------------------------EEPROM----------------------------*/
+#define TENSO_OFFSET_ADDR	0x0000
+
+BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);
+portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
+{
+	i2c<uint16_t>(0xA1, addr, len, data);
+}
 

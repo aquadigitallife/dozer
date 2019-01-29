@@ -197,10 +197,19 @@ double doze = 0.0;
 
 void AD7799Flt(void *Param)
 {
-	double val = ad7799_rd<uint32_t>(CR_ADDR_DR);
+	uint8_t tb = 0xFF;
+	double val;
+	ee_read((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
+	
+	for (unsigned int i = 0; i < sizeof(double); i++) {
+		tb &= ((uint8_t*)&flt0)[i];
+	}
+	
+	if (tb == 0xFF) {flt0 = 0; LED_ERR_ON;}
+	
+	val = ad7799_rd<uint32_t>(CR_ADDR_DR);
 	while (1)
 	{
-//		extern double speed;
 		if (!IS_SM1_ENABLE) {
 			flt1000 += (val - flt1000)/1000.0;
 			flt10 += (val - flt10)/10.0;
@@ -220,7 +229,11 @@ void AD7799Proc(void *Param)
 	xTaskCreate(AD7799Flt, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &Flt_TaskHandle);
 	
 	while (1) {
+//		static uint8_t flag = 0;
+//		if (flag) LED_WORK_ON; else LED_WORK_OFF;
+//		flag ^= 0xFF;
 		int32_t val = (int32_t)((flt10 - flt0)/41.280);
+		if (val < 0) val = 0;
 		if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &val, 0);
 		vTaskDelay(MS_TO_TICK(1000));
 	}

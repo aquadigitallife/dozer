@@ -1,5 +1,6 @@
 #include "Global.h"
 #include "spi.h"
+#include "SampleFilter.h"
 
 #define CR_WEN			0x00
 #define CR_WDIS			0x80
@@ -41,20 +42,10 @@
 #define MR_RATE_8HZ33	0x0D
 #define MR_RATE_6HZ25	0x0E
 #define MR_RATE_4HZ17	0x0F
-/*
-void EXTI15_10_IRQHandler(void) {
-	if(LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_12) != RESET)
-	{
-		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_12);
-
-	}
-}
-*/
 
 template <typename T>
 T ad7799_rd(uint8_t addr)
 {
-//	BaseType_t xResult;
 	uint32_t ulNotifiedValue;
 	
 	static const T null_val = 0;
@@ -99,12 +90,7 @@ T ad7799_rd(uint8_t addr)
 
 	AD7799_CS_DESELECT;
 	clear_spi_handling_task();
-/*	
-	for (int i = sizeof(T); i > 0; i--) {
-		((uint8_t*)&retval)[sizeof(T) - i] = ((uint8_t*)&pretval)[i - 1];
-	}
-	if (sizeof(T) > 2) retval = retval >> ((sizeof(T) - 3)*8);
-*/
+
 	if (sizeof(T) > 2) {
 		((uint8_t*)&retval)[0] = ((uint8_t*)&pretval)[2];
 		((uint8_t*)&retval)[1] = ((uint8_t*)&pretval)[1];
@@ -119,7 +105,6 @@ T ad7799_rd(uint8_t addr)
 
 void ad7799_wr(uint8_t addr, uint8_t value)
 {
-//	BaseType_t xResult;
 	uint32_t ulNotifiedValue;
 	
 	uint8_t tmp;
@@ -158,68 +143,42 @@ void ad7799_wr(uint8_t addr, uint8_t value)
 	AD7799_CS_DESELECT;
 	clear_spi_handling_task();
 }
-/*
-void ad7799_cr(uint8_t on)
-{
-//	BaseType_t xResult;
-	uint32_t ulNotifiedValue;
-	
-	uint8_t tmp;
-	const uint8_t cr = CR_WEN | CR_RD | CR_ADDR_DR | on;
-	
-	AD7799_CS_SELECT;
-	set_spi_handling_task();
-	while (!IS_AD7799_CS_SELECT);
 
-	// (1) Configure DMA parameters for communication register transfer *******************
-	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&cr);
-	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(cr));
-
-	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&tmp);
-	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(cr));
-	// (2) Enable DMA transfer **************************************************
-	start_SPI();
-	
-	// Wait to be notified of a DMA transfer complete interrupt.
-	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
-
-	AD7799_CS_DESELECT;
-	clear_spi_handling_task();
-	
-	
-}
-*/
 double flt1000 = 0.0;
 double flt10 = 0.0;
 double flt0 = 0.0;
 double th = 0.0;
+
 double doze = 0.0;
+//double sum = 0.0;
+
 
 void AD7799Flt(void *Param)
 {
 	uint8_t tb = 0xFF;
 	double val;
+	
+	
 	ee_read((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
 	
-	for (unsigned int i = 0; i < sizeof(double); i++) {
-		tb &= ((uint8_t*)&flt0)[i];
-	}
+	for (unsigned int i = 0; i < sizeof(double); i++) tb &= ((uint8_t*)&flt0)[i];
 	
-	if (tb == 0xFF) {flt0 = 0; LED_ERR_ON;}
+	if (tb == 0xFF) flt0 = 0;
+	
+//	for (unsigned int i = 0; i < (sizeof(dbuf)/sizeof(int16_t)); i++ ) {dbuf[i] = 0; taskYIELD();}
 	
 	val = ad7799_rd<uint32_t>(CR_ADDR_DR);
-	while (1)
-	{
-		if (!IS_SM1_ENABLE) {
-			flt1000 += (val - flt1000)/1000.0;
-			flt10 += (val - flt10)/10.0;
-			while (!IS_ADC_DATA_RDY) taskYIELD();
-			val = ad7799_rd<uint32_t>(CR_ADDR_DR);
-		} else taskYIELD();
+	while (1) {
+		
+//		extern uint8_t motor1_on;
+		flt1000 += (val - flt1000)/1000.0;
+		flt10 += (val - flt10)/10.0;
+		while (!IS_ADC_DATA_RDY) taskYIELD();
+		val = ad7799_rd<uint32_t>(CR_ADDR_DR);
 	}
 }
 
-
+SampleFilter	flt;
 void AD7799Proc(void *Param)
 {
 	TaskHandle_t Flt_TaskHandle;
@@ -227,15 +186,23 @@ void AD7799Proc(void *Param)
 	ad7799_wr(CR_ADDR_MR, (MR_MODE_CONT | MR_PSW_OFF | MR_RATE_16HZ7));
 	
 	xTaskCreate(AD7799Flt, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &Flt_TaskHandle);
+	InitRTUUart(5);
+
+	SampleFilter_init(&flt);
 	
 	while (1) {
-//		static uint8_t flag = 0;
-//		if (flag) LED_WORK_ON; else LED_WORK_OFF;
-//		flag ^= 0xFF;
-		int32_t val = (int32_t)((flt10 - flt0)/41.280);
-		if (val < 0) val = 0;
-		if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &val, 0);
-		vTaskDelay(MS_TO_TICK(1000));
+		int16_t sum;
+		char sval[15];
+		
+		SampleFilter_put(&flt,(flt10 - flt0)/51.02466);		//41.280
+		
+		sum = SampleFilter_get(&flt);
+		LED_ERR_BLINK;
+		sprintf(sval, "%d\n", sum);
+		RTUUartTx(strlen(sval), sval);
+
+//		if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &sum, 0);
+		vTaskDelay(MS_TO_TICK(500));
 	}
 }
 

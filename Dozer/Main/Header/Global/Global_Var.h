@@ -30,6 +30,7 @@ GL_EXP QueueHandle_t WDG_Cmd_Queue;  // Очередь команд к стор�
 GL_EXP QueueHandle_t BatInfo_Queue;  // Очередь с информацией о аккумуляторе
 GL_EXP QueueHandle_t Config_Queue;   // Очередь с настройками и основной конфигурацией устройства
 GL_EXP QueueHandle_t RTC_Queue;
+GL_EXP QueueHandle_t RTC_to_SM0_Queue;
 GL_EXP QueueHandle_t AD7799_Queue;
 
 GL_EXP SemaphoreHandle_t FlashExist_Sem; // Сигнал о корректной инициализации flash памяти

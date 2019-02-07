@@ -21,9 +21,4 @@ BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data)
 	return i2c<uint16_t>(0xA0, addr, len, data);
 //	return pdPASS;
 }
-/*
-__INLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
-{
-	i2c(0xA1, addr, len, data);
-}
-*/
+

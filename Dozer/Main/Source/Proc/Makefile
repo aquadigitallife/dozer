@@ -4,7 +4,7 @@ SUBDIRS = \
 	BLE \
 	RTC
 
-CSRCS =
+CSRCS = SampleFilter.c
 
 CXXSRCS = \
 	Flash.cpp \

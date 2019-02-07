@@ -12,7 +12,7 @@ void Motor0Cycle(void *Param);
 void Motor1Proc(void *Param);
 /*-------------------------Опрос кнопок-------------------------*/
 void ButtonsProc(void *Param);
-/*-----------------------------UART------------------------------*/
+/*-----------------------------BLEUart------------------------------*/
 StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes);
 void BLEUartTx(uint32_t len, uint8_t *data);
 int32_t BLEUartRx(uint32_t len, uint8_t *data);
@@ -28,7 +28,7 @@ struct ble_date_time
 	uint8_t seconds;
 } __packed;
 
-void rtc_update_ble(struct ble_date_time *arg);
+//void rtc_update_ble(struct ble_date_time *arg);
 void BLEProc(void *Param);
 /*------------------------------I2C-----------------------------*/
 void Init_I2C(void);
@@ -53,4 +53,9 @@ portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
 {
 	i2c<uint16_t>(0xA1, addr, len, data);
 }
+/*-----------------------------RTUUart------------------------------*/
+StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes);
+void RTUUartTx(size_t len, void *data);
+size_t RTUUartRx(size_t len, void *data);
+size_t RTUUartPeek(void);
 

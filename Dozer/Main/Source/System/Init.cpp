@@ -93,7 +93,7 @@ static inline void Init_RTOS()
 	xTaskCreate(ButtonsProc, cpTASK[2] , configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &ButtonsTaskHandle);
 	xTaskCreate(BLEProc, cpTASK[3] , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_LED, &BLETaskHandle);
 	xTaskCreate(RTCProc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &RTCTaskHandle);
-	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &AD7799TaskHandle);
+	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &AD7799TaskHandle);
 	
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);
@@ -104,9 +104,10 @@ static inline void Init_RTOS()
 	configASSERT(LED_TaskHandle);
 	configASSERT(WDG_TaskHandle);
 
-	Config_Queue    = xQueueCreate(1, sizeof(STR_CONFIG));
-	RTC_Queue    = xQueueCreate(1, sizeof(struct ble_date_time));
-	AD7799_Queue    = xQueueCreate(10, sizeof(uint32_t));
+	Config_Queue		= xQueueCreate(1, sizeof(STR_CONFIG));
+	RTC_Queue			= xQueueCreate(1, sizeof(struct ble_date_time));
+	RTC_to_SM0_Queue	= xQueueCreate(1, sizeof(struct ble_date_time));
+	AD7799_Queue		= xQueueCreate(10, sizeof(int32_t));
 
 	FlashExist_Sem = xSemaphoreCreateBinary();
 

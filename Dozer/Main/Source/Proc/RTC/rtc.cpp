@@ -101,9 +101,10 @@ void RTCProc(void *Param)
 				.minutes =	(uint8_t)(((rtc.minutes & 0xF0) >> 4)*10 + (rtc.minutes & 0x0F)),
 				.seconds =	(uint8_t)(((rtc.seconds & 0xF0) >> 4)*10 + (rtc.seconds & 0x0F))
 			};
-			if (RTC_Queue != NULL) {
+			if (RTC_Queue != NULL)
 				xQueueSendToBack(RTC_Queue, &ble, 0);
-			}
+			if (RTC_to_SM0_Queue != NULL)
+				xQueueSendToBack(RTC_to_SM0_Queue, &ble, 0);
 		}
 		vTaskDelay(MS_TO_TICK(50));
 	}

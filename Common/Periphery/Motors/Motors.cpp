@@ -1,5 +1,8 @@
 #include "Global.h"
 
+uint8_t motor1_on = 0;
+
+
 void SetSpeedSM0(uint16_t period)
 {
 	LL_TIM_OC_SetCompareCH1(TIM9, period/2);
@@ -102,17 +105,31 @@ void Motor0Proc(void *Param)
 
 void Motor0Cycle(void *Param)
 {
+	struct ble_date_time rtc;
+//	uint8_t *motor_on = (uint8_t*)Param;
 	InitSM0(0x400);
 	
 	while (1) {
-		StopSM0();
-		vTaskSuspend( NULL );
-		StartSM0(1);
-		vTaskDelay(MS_TO_TICK(2000));
-		StopSM0();
-		vTaskDelay(MS_TO_TICK(3000));
-		StartSM0(0);
-		vTaskDelay(MS_TO_TICK(2000));
+	/*	while (*motor_on == 0) {*/
+			StopSM0();
+			vTaskSuspend( NULL );
+//		}
+		for (int i = 0; i < 70; i++) {
+			while (pdFAIL == xQueueReceive(RTC_to_SM0_Queue, &rtc, 0));
+		}
+		if (motor1_on != 0) {
+			StartSM0(1);
+			vTaskDelay(MS_TO_TICK(3000));
+//			StopSM0();
+			while (motor1_on != 0) {
+				StartSM0(0);
+				vTaskDelay(MS_TO_TICK(1000));
+				StartSM0(1);
+				vTaskDelay(MS_TO_TICK(1000));
+			}
+			StartSM0(0);
+			vTaskDelay(MS_TO_TICK(3000));
+		}
 	}
 }
 
@@ -194,62 +211,59 @@ void StopSM1(void)
 //	LED_SM1_OFF;
 }
 
-uint8_t motor1_on = 0;
 double speed = 65535.0;
 
+#define SPEED_MIN	1024.0
+#define SPEED_MID	((SPEED_MAX + SPEED_MIN)/2.0)
+#define SPEED_MAX	195.0
+#define SPEED_AMP	((SPEED_MIN - SPEED_MAX)/2.0)
+// (200 - 250) наиболее оптимально
 void Motor1Proc(void *Param)
 {
-	extern double flt10, th;
-	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, NULL, TASK_PRI_LED, &Motor0CycleHandle);
+//	extern double flt10, th;
+	
+	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, &motor1_on, TASK_PRI_LED, &Motor0CycleHandle);
 	
 	InitSM1(65535);
 	while (1) {
-restart:
+		double sin_var, pre_sin_var;
 		speed = 65535.0;
 		StopSM1();
 		while (motor1_on == 0) vTaskSuspend( NULL );
-		if (flt10 <= th) continue;
+//		if (flt10 <= th) continue;
+		vTaskResume( Motor0CycleHandle );
 		StartSM1(0); 
 		for (;;) {
-			vTaskResume( Motor0CycleHandle );
-			for (;;) {
-				double d;
-				SetSpeedSM1((uint32_t)speed);
-				vTaskDelay(MS_TO_TICK(10));
-				if (speed > 256.0) d = (speed - 128.0)/64; else d = (speed - 128.0)/128.0;
-				if (d < 0.5) break;
-				speed = speed - d;
-			}
-
-			vTaskDelay(MS_TO_TICK(2000));
-			
-			for (;;) {
-				double d;
-				SetSpeedSM1((uint32_t)speed);
-				vTaskDelay(MS_TO_TICK(10));
-				if (speed >= 512.0) d = speed/64.0; else d = speed/256.0;
-				speed = speed + d;
-				if (speed >= 10000.0) break;
-			}
-			StopSM1();
-			speed = 65535.0;
-			for (int i = 0; i < 10; i++) {
-				if (motor1_on == 0) goto restart;
-				vTaskDelay(MS_TO_TICK(1000));
-			}
-			if (flt10 <= th) break;
+			double d;
 			SetSpeedSM1((uint32_t)speed);
-			StartSM1(0); 
-//			if (motor1_on == 0) break;
+			vTaskDelay(MS_TO_TICK(10));
+			if (speed > SPEED_MID) d = (speed - SPEED_MAX)/64; else break;
+//			if (d < 0.005) break;
+			speed = speed - d;
+		}
+//          pre_sin_var = sin(2*pi*vTaskDelay(ms)/T(ms))	T = 12000 ms		
+		sin_var = 0.0; pre_sin_var = 0.00523596383141958009; 
+	
+		while (1) {
+			double si;
+//          sin_var = K*sin_var - pre_sin_var. K = 2*cos(2*pi*vTaskDelay(ms)/T(ms))		T = 12000 ms
+			si = sin_var;
+			sin_var = 1.99997258449485358538*sin_var - pre_sin_var; 
+			pre_sin_var = si;
+			SetSpeedSM1((uint32_t)(SPEED_MID + sin_var*SPEED_AMP));
+			vTaskDelay(MS_TO_TICK(10));
+			if (motor1_on == 0) {
+				if (sin_var < 0.0009 && sin_var > -0.0009) if (pre_sin_var < sin_var) break;
+			}
+		}
+		for (;;) {
+			double d;
+			SetSpeedSM1((uint32_t)speed);
+			vTaskDelay(MS_TO_TICK(10));
+			if (speed >= 512.0) d = speed/64.0; else d = speed/256.0;
+			speed = speed + d;
+			if (speed >= 10000.0) { /*speed = 1024.0;*/ break; }
 		}
 	}
-
-//	vTaskDelete(NULL);
 }
 
-
-
-
-void MotorCycleProc(void *Param)
-{
-}

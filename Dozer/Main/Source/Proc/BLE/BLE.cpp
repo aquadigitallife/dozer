@@ -45,7 +45,6 @@ void BLEProc(void *Param)
 			if (pdPASS == xQueueReceive(RTC_Queue, &rtc, 0)) {
 				gecko_cmd_gatt_server_write_attribute_value(gattdb_date_time, 0x0000, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
 				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_date_time, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
-//				if (flag) LED_ERR_ON; else LED_ERR_OFF; flag ^= 0xFF;
 			}
 		}
 		taskYIELD();
@@ -119,9 +118,6 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 					evt->data.evt_gatt_server_attribute_value.value.data,
 					evt->data.evt_gatt_server_attribute_value.value.len);
 					doze = ((double)(*(int32_t*)(att_store)))*41.280;
-					if (doze == 100.0) LED_ERR_ON;
-//					gecko_cmd_gatt_server_write_attribute_value(gattdb_feed_weight, 0x0000, sizeof(att_store), (const uint8_t*)att_store);
-//					gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_feed_weight, sizeof(att_store), (const uint8_t*)att_store);
 				}
 			break;
 			
@@ -129,13 +125,13 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {
 					extern uint8_t motor1_on;
 					extern TaskHandle_t Motor1TaskHandle;
-					extern double doze, th, flt10;
+//					extern double doze, th, flt10;
 					if (evt->data.evt_gatt_server_attribute_value.value.data[0] != 0) {
-						if (doze > 0.0) {
-							th = flt10 - doze;
-							if (th < 0.0) th = 0.0;
+//						if (doze > 0.0) {
+//							th = flt10 - doze;
+//							if (th < 0.0) th = 0.0;
 							motor1_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON;
-						}
+//						}
 					}
 					else {motor1_on = 0; LED_SM1_OFF;}
 				}

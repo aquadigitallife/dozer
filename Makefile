@@ -38,7 +38,7 @@ debug: dozer.elf
 
 upload: dozer.elf
 	@$(OBJCOPY) -O binary $< $(basename $<).bin
-	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0;stm32f2x mass_erase 0; sleep 500;flash write_bank 0 $(basename $<).bin;sleep 500;reset run;exit"
+	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt;flash probe 0;stm32f2x mass_erase 0; sleep 500;flash write_bank 0 $(basename $<).bin;sleep 500;flash verify_bank 0 $(basename $<).bin 0;reset run;exit"
 	@rm -f $(basename $<).bin
 
 download:

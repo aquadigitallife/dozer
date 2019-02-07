@@ -20,6 +20,11 @@ const uint32_t FW_VER = 0x03000600UL;
 
 #define LED_ERR_ON            do {GPIOF->BSRR = GPIO_BSRR_BS_12;} while (0)
 #define LED_ERR_OFF           do {GPIOF->BSRR = GPIO_BSRR_BR_12;} while (0)
+	
+#define LED_ERR_BLINK		  do { \
+								static uint8_t flag = 0; \
+								if (flag) LED_ERR_ON; else LED_ERR_OFF; \
+								flag ^= 0xFF; } while (0)
 
 #define LED_SD_BUSY_ON        do {GPIOG->BSRR = GPIO_BSRR_BS_7;} while (0)
 #define LED_SD_BUSY_OFF       do {GPIOG->BSRR = GPIO_BSRR_BR_7;} while (0)

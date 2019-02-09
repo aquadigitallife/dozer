@@ -1,7 +1,7 @@
 #include "Global.h"
 
 uint8_t motor1_on = 0;
-
+uint8_t purge_on = 0;
 
 void SetSpeedSM0(uint16_t period)
 {
@@ -106,26 +106,28 @@ void Motor0Proc(void *Param)
 void Motor0Cycle(void *Param)
 {
 	struct ble_date_time rtc;
+	double wgt_start;
 //	uint8_t *motor_on = (uint8_t*)Param;
 	InitSM0(0x400);
 	
 	while (1) {
-	/*	while (*motor_on == 0) {*/
-			StopSM0();
-			vTaskSuspend( NULL );
-//		}
+start:
+		StopSM0();
+		vTaskSuspend( NULL );
 		for (int i = 0; i < 70; i++) {
-			while (pdFAIL == xQueueReceive(RTC_to_SM0_Queue, &rtc, 0));
+			while (pdFAIL == xQueueReceive(RTC_to_SM0_Queue, &rtc, 0)) {if (motor1_on == 0) goto start; };
 		}
 		if (motor1_on != 0) {
+			wgt_start = get_weight();
 			StartSM0(1);
 			vTaskDelay(MS_TO_TICK(3000));
-//			StopSM0();
 			while (motor1_on != 0) {
 				StartSM0(0);
 				vTaskDelay(MS_TO_TICK(1000));
 				StartSM0(1);
 				vTaskDelay(MS_TO_TICK(1000));
+				if ((wgt_start - get_doze() + 830.0) > get_weight())
+					if (purge_on == 0) { motor1_on = 0; break; }
 			}
 			StartSM0(0);
 			vTaskDelay(MS_TO_TICK(3000));
@@ -230,7 +232,7 @@ void Motor1Proc(void *Param)
 		speed = 65535.0;
 		StopSM1();
 		while (motor1_on == 0) vTaskSuspend( NULL );
-//		if (flt10 <= th) continue;
+		if (get_doze() < 830.0 && purge_on == 0) continue;
 		vTaskResume( Motor0CycleHandle );
 		StartSM1(0); 
 		for (;;) {
@@ -238,7 +240,6 @@ void Motor1Proc(void *Param)
 			SetSpeedSM1((uint32_t)speed);
 			vTaskDelay(MS_TO_TICK(10));
 			if (speed > SPEED_MID) d = (speed - SPEED_MAX)/64; else break;
-//			if (d < 0.005) break;
 			speed = speed - d;
 		}
 //          pre_sin_var = sin(2*pi*vTaskDelay(ms)/T(ms))	T = 12000 ms		

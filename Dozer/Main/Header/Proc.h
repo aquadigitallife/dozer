@@ -45,6 +45,11 @@ void clear_spi_handling_task(void);
 void Init_SPI(void);
 /*-----------------------------AD7799----------------------------*/
 void AD7799Proc(void *Param);
+int32_t set_ad7799_zero(void);
+double get_weight(void);
+double get_doze(void);
+void set_doze(int32_t val);
+
 /*-----------------------------EEPROM----------------------------*/
 #define TENSO_OFFSET_ADDR	0x0000
 
@@ -54,8 +59,16 @@ portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
 	i2c<uint16_t>(0xA1, addr, len, data);
 }
 /*-----------------------------RTUUart------------------------------*/
-StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void RTUUartTx(size_t len, void *data);
+StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes);
 size_t RTUUartRx(size_t len, void *data);
 size_t RTUUartPeek(void);
+
+#ifdef __cplusplus
+};
+#endif
 

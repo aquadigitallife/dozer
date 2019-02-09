@@ -14,7 +14,7 @@ bool isMotorsSuspend(void)
 
 void ButtonsProc(void *Param)
 {
-	extern uint8_t motor1_on;
+	extern uint8_t motor1_on, purge_on;
 	TaskHandle_t Motor0TaskHandle;
 	
 	QueueHandle_t SM0_Queue = xQueueCreate ( BUTTON_QUEUE_LENGTH, BUTTON_ITEM_SIZE );
@@ -60,8 +60,8 @@ scan_button:
 					if (IS_SM1_TEST) i++; else goto scan_button;
 					if ((i > 2) && (pre_sm1 == 0)) {
 						pre_sm1 = 0xFF;
-						if (motor1_on == 0) { motor1_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON; }
-						else { LED_SM1_OFF;	motor1_on = 0; }
+						if (motor1_on == 0) { motor1_on = 0xFF; purge_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON; }
+						else { LED_SM1_OFF;	motor1_on = 0; purge_on = 0; }
 						break;
 					}
 				}

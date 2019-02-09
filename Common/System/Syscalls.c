@@ -40,7 +40,7 @@ int _close(int file)
 {
 	(void)file;
 
-	return -1;
+	return -1;	// почему не 0?
 }
 
 __attribute__((used))
@@ -94,14 +94,18 @@ int _read(int file, char *ptr, int len)
 	return len;
 }
 
+void RTUUartTx(size_t len, void *data);
 
 /*Low layer write(output) function*/
+
 __attribute__((used))
 int _write(int file, char *ptr, int len)
 {
 	(void)file;
-	(void)ptr;
-	(void)len;
+//	(void)ptr;
+//	(void)len;
+	
+	RTUUartTx(len, ptr);
 
 #if 0
 	//user code example
@@ -126,4 +130,8 @@ void abort(void)
 	while (1);
 }
 
-void __attribute__ ((weak)) _init(void)  {}
+__attribute__((weak))
+void _init(void)
+{
+	return;
+}

@@ -70,7 +70,7 @@ T ad7799_rd(uint8_t addr)
 	// Wait to be notified of a DMA transfer complete interrupt.
 	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
 	
-	// (1) Configure DMA parameters for communication register transfer *******************
+	// (1) Configure DMA parameters for register transfer *******************
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&null_val);
 	if (sizeof(T) > 2)
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, 3);
@@ -144,13 +144,16 @@ void ad7799_wr(uint8_t addr, uint8_t value)
 	clear_spi_handling_task();
 }
 
-double flt1000 = 0.0;
-double flt10 = 0.0;
-double flt0 = 0.0;
-double th = 0.0;
+//static double flt1000 = 0.0;	// Самый инерционный фильтр 1-го порядка. Для определения начального смещения АЦП.
+static double flt113 = 0.0;
+static double flt10 = 0.0;		// Достаточно быстрый фильтр 1-го порядка.
+						// Служит для сглаживания шумов младших разрядов АЦП и ограничения спектра для основного
+						// фильтра с частотой дискретизации 2 Гц.
+static double flt0 = 0.0;		// Переменная для хранения начального смещения АЦП.
+//static double th = 0.0;		// Порог прекращения выдачи = нач. вес - доза.
 
-double doze = 0.0;
-//double sum = 0.0;
+double doze = 0.0;		// Доза. Задаётся через BLE
+static double weight = 0.0; // Остаток корма в бункере
 
 
 void AD7799Flt(void *Param)
@@ -158,27 +161,24 @@ void AD7799Flt(void *Param)
 	uint8_t tb = 0xFF;
 	double val;
 	
-	
+	// Считываем начальное смещение АЦП из EEPROM
 	ee_read((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
 	
+	// проверяем на корректность значения (потом переделать на проверку КС)
 	for (unsigned int i = 0; i < sizeof(double); i++) tb &= ((uint8_t*)&flt0)[i];
+	if (tb == 0xFF) flt0 = 0.0;	// если память "чистая" устанавливаем нач. смещение АЦП = 0
 	
-	if (tb == 0xFF) flt0 = 0;
-	
-//	for (unsigned int i = 0; i < (sizeof(dbuf)/sizeof(int16_t)); i++ ) {dbuf[i] = 0; taskYIELD();}
-	
-	val = ad7799_rd<uint32_t>(CR_ADDR_DR);
+	val = (double)ad7799_rd<uint32_t>(CR_ADDR_DR);
 	while (1) {
-		
-//		extern uint8_t motor1_on;
-		flt1000 += (val - flt1000)/1000.0;
-		flt10 += (val - flt10)/10.0;
-		while (!IS_ADC_DATA_RDY) taskYIELD();
-		val = ad7799_rd<uint32_t>(CR_ADDR_DR);
+//		flt1000 += (val - flt1000)/1000.0;				// реализация фильтра нач. смещения
+		flt10 += (val - flt10)/10.0;					// реализация предварительного фильтра
+		while (!IS_ADC_DATA_RDY) taskYIELD();			// ожидаем очередное значение
+		val = (double)ad7799_rd<uint32_t>(CR_ADDR_DR);	// читаем очередное значение
 	}
 }
 
-SampleFilter	flt;
+static SampleFilter	flt;
+
 void AD7799Proc(void *Param)
 {
 	TaskHandle_t Flt_TaskHandle;
@@ -186,20 +186,17 @@ void AD7799Proc(void *Param)
 	ad7799_wr(CR_ADDR_MR, (MR_MODE_CONT | MR_PSW_OFF | MR_RATE_16HZ7));
 	
 	xTaskCreate(AD7799Flt, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &Flt_TaskHandle);
-	InitRTUUart(5);
 
 	SampleFilter_init(&flt);
 	
 	while (1) {
-		int16_t sum;
-		char sval[15];
 		
-		SampleFilter_put(&flt,(flt10 - flt0)/51.02466);		//41.280
+		SampleFilter_put(&flt, flt10);		//51.02466 41.280
 		
-		sum = SampleFilter_get(&flt);
+		flt113 = SampleFilter_get(&flt);
+		weight = (flt113 - flt0)/51.02466;
 		LED_ERR_BLINK;
-		sprintf(sval, "%d\n", sum);
-		RTUUartTx(strlen(sval), sval);
+		printf("%10.2f %10.2f\n", weight, doze);
 
 //		if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &sum, 0);
 		vTaskDelay(MS_TO_TICK(500));
@@ -207,7 +204,28 @@ void AD7799Proc(void *Param)
 }
 
 
+int32_t set_ad7799_zero(void)
+{
+//	if ( (flt10 - flt1000) > 100.0 || (flt1000 - flt10) > 100.0 ) flt1000 = flt10;
+	flt0 = flt113;
+	ee_write((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
+	return (int32_t)flt0;
+}
 
+double get_weight(void)
+{
+	return weight;
+}
+
+void set_doze(int32_t val)
+{
+	doze = ((double)val);	
+}
+
+double get_doze(void)
+{
+	return doze;
+}
 
 
 

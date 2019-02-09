@@ -291,6 +291,8 @@ void Init()
 	Init_GPIO();
 	Init_I2C();
 	Init_SPI();
+
+	InitRTUUart(5);		// debug console
 	// Настройка задач, очередей и прочего
 	Init_RTOS();
 

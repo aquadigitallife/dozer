@@ -112,18 +112,18 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 			
 			case gattdb_current_doze:
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {
-					extern double doze;
 					uint8_t att_store[6];
 					memcpy(att_store,
 					evt->data.evt_gatt_server_attribute_value.value.data,
 					evt->data.evt_gatt_server_attribute_value.value.len);
-					doze = ((double)(*(int32_t*)(att_store)))*41.280;
+					set_doze(*(int32_t*)(att_store));
+					
 				}
 			break;
 			
 			case gattdb_dispancer:
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {
-					extern uint8_t motor1_on;
+					extern uint8_t motor1_on, purge_on;
 					extern TaskHandle_t Motor1TaskHandle;
 //					extern double doze, th, flt10;
 					if (evt->data.evt_gatt_server_attribute_value.value.data[0] != 0) {
@@ -133,16 +133,13 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 							motor1_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON;
 //						}
 					}
-					else {motor1_on = 0; LED_SM1_OFF;}
+					else {motor1_on = 0; purge_on = 0; LED_SM1_OFF;}
 				}
 			break;
 			
 			case gattdb_calibrate:
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {
-					extern double flt1000, flt10, flt0;
-						if ((flt10 - flt1000) > 100.0 || (flt1000 - flt10) > 100.0 ) flt1000 = flt10;
-						flt0 = flt1000;
-						ee_write((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
+					set_ad7799_zero();
 				}
 		}
 	break;

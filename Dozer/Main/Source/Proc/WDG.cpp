@@ -1,4 +1,9 @@
-﻿#include "Global.h"
+﻿/*
+	Модуль сторожевого таймера.
+	Писал не я (Васильев А.В.)
+	Как работает не разбирался, но оно работает.
+*/
+#include "Global.h"
 
 void ResetWatchdog(uint32_t &LastResetTime, const uint8_t TaskID, const uint32_t Time, const uint8_t Param, const bool Force /* = false*/)
 {

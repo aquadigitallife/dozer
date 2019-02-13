@@ -1,4 +1,8 @@
-﻿#include "Global.h"
+﻿/*
+	Модуль заглушек для системных прерываний
+*/
+
+#include "Global.h"
 
 ISR(NMI_Handler)
 {

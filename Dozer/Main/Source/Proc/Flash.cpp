@@ -1,4 +1,10 @@
-﻿#include "Global.h"
+﻿/*
+	Модуль для работы с CompactFlash
+	писал не я (Васильев А.В.), как работает
+	не разбирался
+*/
+
+#include "Global.h"
 
 using namespace S25FL;
 

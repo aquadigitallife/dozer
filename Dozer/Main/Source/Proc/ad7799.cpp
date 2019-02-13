@@ -46,55 +46,60 @@
 #define MR_RATE_8HZ33	0x0D
 #define MR_RATE_6HZ25	0x0E
 #define MR_RATE_4HZ17	0x0F
-
+/*
+	Функции чтения регистров AD7799
+	T может принимать значения uint8_t или int32_t (для 24-битных значений)
+	аргумент addr - адрес регистра для чтения, одна из констант CR_ADDR_XX
+*/
 template <typename T>
 T ad7799_rd(uint8_t addr)
 {
-	uint32_t ulNotifiedValue;
+	uint32_t ulNotifiedValue;	// переменная для функции xTaskNotifyWait
 	
-	static const T null_val = 0;
-	T retval = 0;
-	T pretval = 0;
+	static const T null_val = 0;	// значение, передаваемое по SPI при чтении (д.б. всегда ноль)
+	T retval = 0;					// возвращаемое значение
+	T pretval = 0;					// считанное из АЦП значение
 	
-	uint8_t cr = CR_WEN | CR_RD | addr;
+	uint8_t cr = CR_WEN | CR_RD | addr;		// формируем команду чтения для записи в коммуникационный регистр
 	
-	AD7799_CS_SELECT;
-	set_spi_handling_task();
-	while (!IS_AD7799_CS_SELECT);
+	AD7799_CS_SELECT;				// опускаем чип-селект
+	set_spi_handling_task();		// привязываем текущую задачу к обработчику прерываний SPI
+	while (!IS_AD7799_CS_SELECT);	// ожидаем нулевое значение на чип-селект
 
-	// (1) Configure DMA parameters for communication register transfer *******************
-	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&cr);
+	// (1) Настраиваем DMA на передачу команды *******************
+	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&cr);	
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(cr));
-
+	// Настраиваем DMA на приём dummy байта
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&pretval);
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(cr));
-	// (2) Enable DMA transfer **************************************************
-	
+
+	// (2) Стартуем обмен по SPI **************************************************
 	start_SPI();
-	// Wait to be notified of a DMA transfer complete interrupt.
+	
+	// Ожидаем окончания передачи (сигнал от обработчика прерывания).
 	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
 	
-	// (1) Configure DMA parameters for register transfer *******************
+	// (1) Настраиваем DMA на передачу нулей *******************
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&null_val);
-	if (sizeof(T) > 2)
+	if (sizeof(T) > 2)	// если T == int32_t, принимаем 3 байта
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, 3);
-	else
+	else	// иначе кол-во байт равно размеру типа (2 или 1)
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(T));
-
+	// приём байт в переменную pretval
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&pretval);
-	if (sizeof(T) > 2)
+	if (sizeof(T) > 2)	// кол-во байт на приём аналогично передаче
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, 3);
 	else
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(T));
-	// (2) Enable DMA transfer **************************************************
+	// (2) Стартуем обмен по SPI **************************************************
 	
 	start_SPI();
-	// Wait to be notified of a DMA transfer complete interrupt.
+	// Ожидаем окончания приёма (сигнал от обработчика прерывания).
 	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
-
+	// поднимаем чип-селект
 	AD7799_CS_DESELECT;
-	clear_spi_handling_task();
-
+	clear_spi_handling_task();	// освобождаем контроллер SPI от задачи
+	// меняем порядок следования байт на младшего индейца
 	if (sizeof(T) > 2) {
 		((uint8_t*)&retval)[0] = ((uint8_t*)&pretval)[2];
 		((uint8_t*)&retval)[1] = ((uint8_t*)&pretval)[1];
@@ -107,59 +112,63 @@ T ad7799_rd(uint8_t addr)
 	return retval;
 }
 
+/*
+	Функция записи регистров АЦП
+	аргумент addr - адрес регистра для записи, одна из констант CR_ADDR_XX
+	аргумент value - записываемое значение регистра
+*/
 void ad7799_wr(uint8_t addr, uint8_t value)
 {
-	uint32_t ulNotifiedValue;
+	uint32_t ulNotifiedValue;	// переменная для функции xTaskNotifyWait
 	
-	uint8_t tmp;
+	uint8_t tmp;	// переменная для приёма незначащего байта во время передачи
 	
-	const uint8_t pval = value;
-	const uint8_t cr = CR_WEN | CR_WR | addr;
+	const uint8_t pval = value;					// сохраняем записываемое значение в лок. переменной
+	const uint8_t cr = CR_WEN | CR_WR | addr;	// формируем команду на запись
 	
-	AD7799_CS_SELECT;
-	set_spi_handling_task();
-	while (!IS_AD7799_CS_SELECT);
+	AD7799_CS_SELECT;					// опускаем чип-селект
+	set_spi_handling_task();			// связываем контроллер SPI с текущей задачей
+	while (!IS_AD7799_CS_SELECT);		// ожидаем пока опустится чип-селект
 
-	// (1) Configure DMA parameters for communication register transfer *******************
+	// (1) Настраиваем DMA на передачу команды в коммуникационный регистр *******************
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&cr);
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(cr));
-
+	// Настраиваем DMA на приём незначащего байта во время передачи
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&tmp);
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(tmp));
-	// (2) Enable DMA transfer **************************************************
+	// (2) Стартуем передачу по SPI **************************************************
 	start_SPI();
 	
-	// Wait to be notified of a DMA transfer complete interrupt.
+	// Ожидаем окончания передачи.
 	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
 	
-	// (1) Configure DMA parameters for communication register transfer *******************
+	// (1) Настраиваем DMA на передачу записываемого значения в регистр *******************
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&pval);
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(pval));
-
+	// Настраиваем DMA на приём незначащего байта во время передачи
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&tmp);
 	LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(tmp));
-	// (2) Enable DMA transfer **************************************************
+	// (2) Стартуем передачу по SPI **************************************************
 	start_SPI();
 	
-	// Wait to be notified of a DMA transfer complete interrupt.
+	// Ожидаем окончания передачи.
 	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
 
-	AD7799_CS_DESELECT;
-	clear_spi_handling_task();
+	AD7799_CS_DESELECT;	// поднимаем чип-селект
+	clear_spi_handling_task();	// освобождаем контроллер от задачи
 }
 
-//static double flt1000 = 0.0;	// Самый инерционный фильтр 1-го порядка. Для определения начального смещения АЦП.
-static double flt113 = 0.0;
+static double flt113 = 0.0;		// Выходное значение основного фильтра
 static double flt10 = 0.0;		// Достаточно быстрый фильтр 1-го порядка.
-						// Служит для сглаживания шумов младших разрядов АЦП и ограничения спектра для основного
-						// фильтра с частотой дискретизации 2 Гц.
+								// Служит для сглаживания шумов младших разрядов АЦП и ограничения спектра для основного
+								// фильтра с частотой дискретизации 2 Гц.
 static double flt0 = 0.0;		// Переменная для хранения начального смещения АЦП.
-//static double th = 0.0;		// Порог прекращения выдачи = нач. вес - доза.
 
-double doze = 0.0;		// Доза. Задаётся через BLE
-static double weight = 0.0; // Остаток корма в бункере
-
-
+double doze = 0.0;				// Доза. Задаётся через BLE
+static double weight = 0.0; 	// Остаток корма в бункере
+/*
+	Процесс предварительной фильтрации значений АЦП
+*/
 void AD7799Flt(void *Param)
 {
 	uint8_t tb = 0xFF;
@@ -172,62 +181,78 @@ void AD7799Flt(void *Param)
 	for (unsigned int i = 0; i < sizeof(double); i++) tb &= ((uint8_t*)&flt0)[i];
 	if (tb == 0xFF) flt0 = 0.0;	// если память "чистая" устанавливаем нач. смещение АЦП = 0
 	
-	val = (double)ad7799_rd<uint32_t>(CR_ADDR_DR);
+	val = (double)ad7799_rd<uint32_t>(CR_ADDR_DR);		// читаем первое значение АЦП
 	while (1) {
-//		flt1000 += (val - flt1000)/1000.0;				// реализация фильтра нач. смещения
 		flt10 += (val - flt10)/10.0;					// реализация предварительного фильтра
 		while (!IS_ADC_DATA_RDY) taskYIELD();			// ожидаем очередное значение
 		val = (double)ad7799_rd<uint32_t>(CR_ADDR_DR);	// читаем очередное значение
 	}
 }
 
-static SampleFilter	flt;
-
+static SampleFilter	flt;	// структура основного фильтра (коэффициенты и прочее)
+/*
+	Процесс основного фильтра и инициализации АЦП.
+*/
 void AD7799Proc(void *Param)
 {
-	TaskHandle_t Flt_TaskHandle;
-	
+	TaskHandle_t Flt_TaskHandle;	// дескриптор процесса предварительного фильтра
+	// Настраиваем АЦП на непрерывное чтение с частотой преобразования 16,7 Гц
 	ad7799_wr(CR_ADDR_MR, (MR_MODE_CONT | MR_PSW_OFF | MR_RATE_16HZ7));
-	
+	// Создаём процесс предварительной фильтрации
 	xTaskCreate(AD7799Flt, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &Flt_TaskHandle);
-
+	// инициализируем основной фильтр
 	SampleFilter_init(&flt);
 	
 	while (1) {
-		static uint8_t flag = 0;
-		int32_t iweight;
-		SampleFilter_put(&flt, flt10);		//51.02466 41.280
+		static uint8_t flag = 0;	// делитель частоты обновления фильтра на 2 (для выдачи значений веса в BLE) 
+		int32_t iweight;	// вес в формате integer
+		SampleFilter_put(&flt, flt10);	// подаём на вход фильтра выход предварительного фильтра
 		
-		flt113 = SampleFilter_get(&flt);
-		weight = (flt113 - flt0)/51.02466;
-		iweight = (int32_t)weight;
-		LED_ERR_BLINK;
-		printf("%10.2f %10.2f\n", weight, doze);
-		flag ^= 0xFF;
+		flt113 = SampleFilter_get(&flt);	// считываем выходное значение фильтра
+		weight = (flt113 - flt0)/51.02466;	// вычисляем вес: вычитаем смещение, делим на крутизну
+		iweight = (int32_t)weight;			// вес в формате integer для передачи в BLE
+//		LED_ERR_BLINK;						// сигнализация для отладки
+//		printf("%10.2f %10.2f\n", weight, doze);	// отладочный вывод текущего значения веса
+		flag ^= 0xFF;	// делитель частоты на 2
+		// С частотой в 2 раза меньшей частоты обновления фильтра, обновляем значение веса в БД BLE
 		if (flag == 0) if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
+		// Частота обновления фильтра 2Гц
 		vTaskDelay(MS_TO_TICK(500));
 	}
 }
 
-
+/*
+	Функция обновления и записи начального смещения.
+	Вызывается по команде от BLE
+*/
 int32_t set_ad7799_zero(void)
 {
-//	if ( (flt10 - flt1000) > 100.0 || (flt1000 - flt10) > 100.0 ) flt1000 = flt10;
-	flt0 = flt113;
-	ee_write((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);
-	return (int32_t)flt0;
+	flt0 = flt113;	// принимаем за начальное смещение текущее значение фильтра
+	ee_write((uint16_t)TENSO_OFFSET_ADDR, sizeof(double), &flt0);	// записываем значение в EEPROM
+	return (int32_t)flt0;	// возвращаем записанное значение
 }
-
+/*
+	Функция возвращает текущее значение веса корма в кормушке
+	Предназначена для вызова из других модулей
+*/
 double get_weight(void)
 {
 	return weight;
 }
 
+/*
+	Функция установки запрашиваемой дозы
+	Вызывается по команде из BLE
+*/
 void set_doze(int32_t val)
 {
 	doze = ((double)val);	
 }
 
+/*
+	Функция чтения установленной дозы.
+	Предназначена для вызова из других модулей
+*/
 double get_doze(void)
 {
 	return doze;

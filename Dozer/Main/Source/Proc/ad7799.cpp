@@ -1,34 +1,38 @@
+/*
+	Модуль работы с AD7799
+*/
+
 #include "Global.h"
 #include "spi.h"
 #include "SampleFilter.h"
-
-#define CR_WEN			0x00
-#define CR_WDIS			0x80
-#define CR_RD			0x40
-#define CR_WR			0x00
-#define CR_ADDR_MASK	((uint8_t)0x38)
-#define CR_ADDR_CR		((uint8_t)0x00)
-#define CR_ADDR_SR		((uint8_t)0x00)
-#define CR_ADDR_MR		((uint8_t)(1 << 3))
-#define CR_ADDR_CON		((uint8_t)(2 << 3))
-#define CR_ADDR_DR		((uint8_t)(3 << 3))
-#define CR_ADDR_ID		((uint8_t)(4 << 3))
-#define CR_ADDR_IO		((uint8_t)(5 << 3))
-#define CR_ADDR_OFFSET	((uint8_t)(6 << 3))
-#define CR_ADDR_SCALE	((uint8_t)(7 << 3))
-#define CR_CREAD		0x04
-
-#define MR_MODE_CONT	0x00
-#define MR_MODE_SINGLE	0x20
-#define MR_MODE_IDLE	0x40
-#define MR_MODE_PD		0x60
-#define MR_MODE_IZERO	0x80
-#define MR_MODE_IFSCALE	0xA0
-#define MR_MODE_SZERO	0xC0
-#define MR_MODE_SFSCALE	0xE0
-#define MR_PSW_ON		0x10
-#define MR_PSW_OFF		0x00
-#define MR_RATE_470HZ	0x01
+/*Константы команд коммуникационного регистра */
+#define CR_WEN			0x00				// запись в комм. регистр разрешена
+#define CR_WDIS			0x80				// запись в комм. регистр запрещена
+#define CR_RD			0x40				// следующая операция будет чтение регистра
+#define CR_WR			0x00				// следующая операция будет запись регистра
+#define CR_ADDR_MASK	((uint8_t)0x38)		// маска адреса регистра
+#define CR_ADDR_CR		((uint8_t)0x00)		// адрес CONTROL reg.
+#define CR_ADDR_SR		((uint8_t)0x00)		// адрес STATUS reg.
+#define CR_ADDR_MR		((uint8_t)(1 << 3))	// адрес MODE reg.
+#define CR_ADDR_CON		((uint8_t)(2 << 3))	// адрес CONFIG reg.
+#define CR_ADDR_DR		((uint8_t)(3 << 3))	// адрес DATA reg.
+#define CR_ADDR_ID		((uint8_t)(4 << 3))	// адрес ID устройства
+#define CR_ADDR_IO		((uint8_t)(5 << 3))	// адрес управления портами ввода-вывода
+#define CR_ADDR_OFFSET	((uint8_t)(6 << 3))	// адрес регистра текущего смещения
+#define CR_ADDR_SCALE	((uint8_t)(7 << 3))	// адрес регистра текущей крутизны
+#define CR_CREAD		0x04				// признак непрерывного чтения
+/* Константы команд регистра MODE */
+#define MR_MODE_CONT	0x00	// непрерывное чтение
+#define MR_MODE_SINGLE	0x20	// однократное чтение
+#define MR_MODE_IDLE	0x40	// режим ожидания
+#define MR_MODE_PD		0x60	// режим малого энергопотребления
+#define MR_MODE_IZERO	0x80	// режим внутреннего сброса нуля
+#define MR_MODE_IFSCALE	0xA0	// режим внутреннего масштабирования
+#define MR_MODE_SZERO	0xC0	// режим системного сброса нуля
+#define MR_MODE_SFSCALE	0xE0	// режим системного масштабирования
+#define MR_PSW_ON		0x10	// встроенный ключ включить
+#define MR_PSW_OFF		0x00	// встроенный ключ выключить
+#define MR_RATE_470HZ	0x01	// это и далее - частоты преобразования
 #define MR_RATE_242HZ	0x02
 #define MR_RATE_123HZ	0x03
 #define MR_RATE_62HZ	0x04
@@ -190,15 +194,17 @@ void AD7799Proc(void *Param)
 	SampleFilter_init(&flt);
 	
 	while (1) {
-		
+		static uint8_t flag = 0;
+		int32_t iweight;
 		SampleFilter_put(&flt, flt10);		//51.02466 41.280
 		
 		flt113 = SampleFilter_get(&flt);
 		weight = (flt113 - flt0)/51.02466;
+		iweight = (int32_t)weight;
 		LED_ERR_BLINK;
 		printf("%10.2f %10.2f\n", weight, doze);
-
-//		if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &sum, 0);
+		flag ^= 0xFF;
+		if (flag == 0) if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
 		vTaskDelay(MS_TO_TICK(500));
 	}
 }

@@ -21,8 +21,6 @@ static inline void Init_Clocks()
 	// Базовая настройка тактирования
 	InitRCC();
 
-	// TODO Настройка PLL I2S
-
 	// Включаем тактирование периферии
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN |
 	                RCC_AHB1ENR_GPIODEN | RCC_AHB1ENR_GPIOEEN |
@@ -51,13 +49,13 @@ static inline void Init_Clocks()
 
 static inline void Init_Val()
 {
-	// Инициализация переменных
+	// Инициализация системных переменных
 
-	Time = 0;
+	Time = 0;		// время
 	AbsTime = 0;
 
 #if (configSUPPORT_DYNAMIC_ALLOCATION > 0 && configAPPLICATION_ALLOCATED_HEAP > 0)
-	memset(ucHeap, 0, sizeof(ucHeap));
+	memset(ucHeap, 0, sizeof(ucHeap));	// куча
 
 #ifdef DEBUG
 	uint32_t *Heap = (uint32_t*)(ucHeap);
@@ -88,25 +86,35 @@ static inline void Init_RTOS()
 	};
 
 	// Создаём задачи
+	// моргание светодиодом status
 	xTaskCreate(LED_TaskProc  , cpTASK[0] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_LED  , &LED_TaskHandle);
+	// Работа с CompactFlash
 	xTaskCreate(FlashProc , cpTASK[1] , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_FLASH, &FlashTaskHandle);
+	// Опрос кнопок
 	xTaskCreate(ButtonsProc, cpTASK[2] , configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &ButtonsTaskHandle);
+	// Работа с BLE
 	xTaskCreate(BLEProc, cpTASK[3] , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_LED, &BLETaskHandle);
+	// Рассылка сообщений с датой и временем
 	xTaskCreate(RTCProc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &RTCTaskHandle);
+	// Обработка сигнала тензодатчика
 	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &AD7799TaskHandle);
 	
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);
 //	xTaskCreate(GyroTaskProc  , cpTASK[4] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_GYRO , &GyroTaskHandle);
 //	xTaskCreate(USB_TaskProc  , cpTASK[5] , configMINIMAL_STACK_SIZE + 500, 0, TASK_PRI_USB  , &USB_TaskHandle);
+	// Сторожевой таймер
 	xTaskCreate(WDG_TaskProc  , cpTASK[6] , configMINIMAL_STACK_SIZE + 100, 0, TASK_PRI_WDG  , &WDG_TaskHandle);
 
 	configASSERT(LED_TaskHandle);
 	configASSERT(WDG_TaskHandle);
 
 	Config_Queue		= xQueueCreate(1, sizeof(STR_CONFIG));
+	// Создаём очередь сообщений RTC
 	RTC_Queue			= xQueueCreate(1, sizeof(struct ble_date_time));
+	// Очередь сообщений от RTC к Motor0Cycle
 	RTC_to_SM0_Queue	= xQueueCreate(1, sizeof(struct ble_date_time));
+	// Очередь сообщений от тензодатчика к BLE
 	AD7799_Queue		= xQueueCreate(10, sizeof(int32_t));
 
 	FlashExist_Sem = xSemaphoreCreateBinary();
@@ -117,7 +125,7 @@ static inline void Init_RTOS()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+// Инициализация сторожевого таймера
 ///////////////////////////////////////////////////////////////////////////////
 static inline void Init_WatchDogs()
 {
@@ -132,6 +140,9 @@ static inline void Init_WatchDogs()
 #endif
 }
 
+/*
+	Инициализация портов ввода-вывода
+*/
 static inline void Init_GPIO()
 {
 	// Настраиваем руки/ноги
@@ -170,10 +181,10 @@ static inline void Init_GPIO()
 	FLASH_DESELECT;
 	FLASH2_DESELECT0;
 	FLASH2_DESELECT1;
-	
+	// отключаем AD7799
 	ADC_TENSO_CS_DESELECT;
 	ADC_EXT_CS4_DESELECT;
-	
+	// отключаем двигатели
 	PWR_SM0_EN;
 	SM0_WAKEUP;
 	SM0_DISABLE;
@@ -287,16 +298,18 @@ void Init()
 	Init_Clocks();
 	// Инициализируем переменные
 	Init_Val();
-
+	// Инициализация GPIO
 	Init_GPIO();
+	// Инициализация I2C
 	Init_I2C();
+	// Инициализация SPI
 	Init_SPI();
-
+	// Инициализация UART RTU (пока для отладки)
 	InitRTUUart(5);		// debug console
 	// Настройка задач, очередей и прочего
 	Init_RTOS();
 
-	// Настройка периферии
+	// Настройка таймеров
 	Init_WatchDogs();
 	Init_Timers();
 
@@ -304,6 +317,7 @@ void Init()
 	Init_NVIC();
 }
 
+/*для нужд отладки. Вызов из модулей Си */
 extern "C" {
 	void led_err_on(void);
 	void led_err_off(void);

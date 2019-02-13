@@ -1,23 +1,24 @@
-﻿
-void LED_TaskProc(void *Param);
-void FlashProc(void *Param);
+
+void LED_TaskProc(void *Param);		// процесс мигания светодиодом "status"
+void FlashProc(void *Param);		// процесс работы с CompactFlash
 
 // Для сторожевой собаки
 void WDG_TaskProc(void *Param);
 void ResetWatchdog(uint32_t &LastResetTime, const uint8_t TaskID, const uint32_t Time, const uint8_t Param, const bool Force = false);
 
-/*-----------------------Заслонка, диспенсер-------------------*/
-void Motor0Proc(void *Param);
-void Motor0Cycle(void *Param);
-void Motor1Proc(void *Param);
+/*-----------------------Заслонка, крыльчатка-------------------*/
+void Motor0Proc(void *Param);	// ручное управление заслонкой
+void Motor0Cycle(void *Param);	// управление заслонкой во время рассеивания
+void Motor1Proc(void *Param);	// управление крыльчаткой во время рассеяния
 /*-------------------------Опрос кнопок-------------------------*/
 void ButtonsProc(void *Param);
 /*-----------------------------BLEUart------------------------------*/
-StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes);
-void BLEUartTx(uint32_t len, uint8_t *data);
-int32_t BLEUartRx(uint32_t len, uint8_t *data);
-int32_t BLEUartPeek(void);
+StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes);	// инициализация USART для связи с BLE
+void BLEUartTx(uint32_t len, uint8_t *data);				// функция передачи данных в BLE
+int32_t BLEUartRx(uint32_t len, uint8_t *data);				// функция приёма данных из BLE
+int32_t BLEUartPeek(void);									// функция проверки наличия сообщений от BLE
 /*------------------------------BLE------------------------------*/
+/* Структура даты и времени в модуле BLE */
 struct ble_date_time
 {
 	uint16_t year;
@@ -28,33 +29,32 @@ struct ble_date_time
 	uint8_t seconds;
 } __packed;
 
-//void rtc_update_ble(struct ble_date_time *arg);
-void BLEProc(void *Param);
+void BLEProc(void *Param);	
 /*------------------------------I2C-----------------------------*/
-void Init_I2C(void);
+void Init_I2C(void);	// инициализация контроллера I2C
 
-template <typename T>
-BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);
+template <typename T>	// функции приёма/передачи по шине I2C. T может быть либо uint8_t (для RTC) либо uint16_t (для EEPROM)
+BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);	// если LSB dev == 1 то чтение если 0 - запись
 /*-----------------------------RTC-------------------------------*/
-void ble_update_rtc(const struct ble_date_time *arg);
-void RTCProc(void *Param);
+void ble_update_rtc(const struct ble_date_time *arg);	// функция установки RTC со смартфона
+void RTCProc(void *Param);	// процесс выдачи сообщений о текущем времени каждую секунду
 /*------------------------------SPI------------------------------*/
-void start_SPI(void);
-void set_spi_handling_task(void);
-void clear_spi_handling_task(void);
-void Init_SPI(void);
+void start_SPI(void);				// старт SPI-транзакции
+void set_spi_handling_task(void);	// функция назначения текущей задачи контроллеру SPI
+void clear_spi_handling_task(void);	// функция освобождения контроллера SPI от задачи
+void Init_SPI(void);				// инициализация контроллера SPI
 /*-----------------------------AD7799----------------------------*/
-void AD7799Proc(void *Param);
-int32_t set_ad7799_zero(void);
-double get_weight(void);
-double get_doze(void);
-void set_doze(int32_t val);
+void AD7799Proc(void *Param);		// основной фильтр показаний АЦП тензодатчика
+int32_t set_ad7799_zero(void);		// обнуление начального смещения и запись его в EEPROM
+double get_weight(void);			// функция чтения текущего веса
+double get_doze(void);				// функция чтения заданной дозы
+void set_doze(int32_t val);			// установка дозы через BLE
 
 /*-----------------------------EEPROM----------------------------*/
-#define TENSO_OFFSET_ADDR	0x0000
+#define TENSO_OFFSET_ADDR	0x0000	// адрес хранения начального смещения АЦП
 
-BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);
-portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
+BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);		// функция записи в EEPROM
+portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
 {
 	i2c<uint16_t>(0xA1, addr, len, data);
 }
@@ -63,10 +63,10 @@ portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)
 extern "C" {
 #endif
 
-void RTUUartTx(size_t len, void *data);
-StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes);
-size_t RTUUartRx(size_t len, void *data);
-size_t RTUUartPeek(void);
+void RTUUartTx(size_t len, void *data);						// передача данных по UART RTU
+StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes);	// инициализация UART RTU
+size_t RTUUartRx(size_t len, void *data);					// приём данных по UART RTU
+size_t RTUUartPeek(void);									// Проверка наличия сообщений от RTU
 
 #ifdef __cplusplus
 };

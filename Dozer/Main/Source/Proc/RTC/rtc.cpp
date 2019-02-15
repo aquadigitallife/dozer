@@ -1,10 +1,10 @@
 /*
-	Модуль часов реального времени
+	Модуль часов реального времени RTC
 */
 
 #include "Global.h"
 #include "i2c.h"
-
+// Структура хранения времени/даты в микросхеме RTC
 struct rtc_time_struct {
 	uint8_t	seconds;
 	uint8_t minutes;
@@ -21,10 +21,12 @@ struct rtc_time_struct {
 	uint8_t temp_lo;
 } __packed;
 
-static struct rtc_time_struct rtc, rtcw;
+static struct rtc_time_struct rtc, rtcw;	// структура даты/времени для записи в микросхему
 
-
-
+/*
+	Функция проверки устанавливаемой даты на корректность.
+	Она не должна быть меньше 14:31 12.01.2019
+*/
 BaseType_t is_rtc_time_valid(struct rtc_time_struct *rtc)
 {
 	if (rtc->year < 0x19) return pdFAIL;
@@ -43,39 +45,45 @@ BaseType_t is_rtc_time_valid(struct rtc_time_struct *rtc)
 	}
 }
 
+/*
+	Функция конвертирования числа из двоичного формата в двоично-десятичный
+*/
 __STATIC_INLINE uint8_t bin2bcd(uint16_t arg)
 {
 	return (uint8_t)(((arg/10)<<4) + arg%10);
 }
-
+/*
+	Запись новой даты/времени в RTC по команде из BLE
+*/
 void ble_update_rtc(const struct ble_date_time *arg)
 {
 	uint16_t pyear = arg->year - 2000;
-	uint8_t centure = (uint8_t)(pyear/100);
+	uint8_t centure = (uint8_t)(pyear/100);	// Вычисляем номер столения
 	
-	pyear = arg->year - 2000;
-	centure = (uint8_t)(pyear/100);
+//	pyear = arg->year - 2000;			
+//	centure = (uint8_t)(pyear/100);
+// Преобразуем дату и время в формат BCD
 	rtcw.year = bin2bcd(pyear%100);
 	rtcw.month = (centure << 7) + bin2bcd(arg->month);
 	rtcw.date = bin2bcd(arg->day);
 	rtcw.hours = bin2bcd(arg->hours);
 	rtcw.minutes = bin2bcd(arg->minutes);
 	rtcw.seconds = bin2bcd(arg->seconds);
-//	rtcw.alarms[0] = rtc.alarms[0];
-//	if (arg->year != 2020) LED_WORK_ON;
+// Записываем новые дату и время
 	i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtcw);
-	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
-//	if (rtcw.year != 0x20)  LED_SD_BUSY_ON;
-//	if (rtc.year != 0x20) LED_ERR_ON;
+//	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
 }
-
+/*
+	Процесс вычитывает дату и время из RTC, и каждую секунду
+	отправляет их в BLE
+*/
 void RTCProc(void *Param)
 {
-	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
+	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);	// читаем текущее время из микросхемы
 
 	rtc.status = 0;
 
-	if (is_rtc_time_valid(&rtc) == pdFAIL) {
+	if (is_rtc_time_valid(&rtc) == pdFAIL) {	// если время неверно, записываем в микросхему значение по умолчанию
 		rtc.seconds = 0x00;
 		rtc.minutes = 0x31;
 		rtc.hours = 0x14;
@@ -86,16 +94,16 @@ void RTCProc(void *Param)
 		i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtc);
 	}
 
-	i2c(RTC_WRITE, (uint8_t)offsetof(struct rtc_time_struct, status), sizeof(rtc.status), &rtc.status);
+	i2c(RTC_WRITE, (uint8_t)offsetof(struct rtc_time_struct, status), sizeof(rtc.status), &rtc.status);		// возможно избыточно
 
 	for (;;) {
-		static uint8_t seconds;
+		static uint8_t seconds;	// переменная для определения момента истечения секунды
 
-		seconds = rtc.seconds;
+		seconds = rtc.seconds;	// присваиваем текущее значение секунд
 
-		i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtc);
+		i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtc);	// читаем текущие дату и время
 
-		if (seconds != rtc.seconds) {
+		if (seconds != rtc.seconds) {	// если значение секунд изменилось отправляем новое значение даты/времени в очередь сообщений для BLE и двигателя заслонки
 			struct ble_date_time ble = {
 			
 				.year =		(uint16_t)(2000 + ((rtc.month & 0x80) >> 7)*100 + ((rtc.year & 0xF0) >> 4)*10 + (rtc.year & 0x0F)),
@@ -110,6 +118,6 @@ void RTCProc(void *Param)
 			if (RTC_to_SM0_Queue != NULL)
 				xQueueSendToBack(RTC_to_SM0_Queue, &ble, 0);
 		}
-		vTaskDelay(MS_TO_TICK(50));
+		vTaskDelay(MS_TO_TICK(50));	// проверяем секунды каждые 50мс.
 	}
 }

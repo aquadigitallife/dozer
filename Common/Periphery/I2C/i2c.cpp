@@ -1,89 +1,89 @@
+/*
+	Модуль содержит функции для работы с контроллером I2C
+*/
+
 #include "Global.h"
 
-/* I2C SPEEDCLOCK define to max value: 400 KHz */
+/* Параметры сигнала I2C: частота 50 кГц, скважность 2 */
 #define I2C_SPEEDCLOCK		50000
 #define I2C_DUTYCYCLE		LL_I2C_DUTYCYCLE_2
-
-#define I2C_COMPLETE		0x00000001UL
-#define I2C_ERROR			0x00000002UL
+/* Признаки завершения передачи по DMA*/
+#define I2C_COMPLETE		0x00000001UL	// передача завершена без ошибок
+#define I2C_ERROR			0x00000002UL	// с щибками
 
 /**
-  * @brief Master Transfer Request Direction
+  * @brief Константы направления передачи (запись/чтение)
   */
 #define I2C_REQUEST_WRITE	0x00
 #define I2C_REQUEST_READ	0x01
 
-
+/* Обработчики прерываний */
 #ifdef __cplusplus
 extern "C" {
 #endif
-void I2C3_EV_IRQHandler(void) __attribute__((interrupt));
-void DMA1_Stream4_IRQHandler(void) __attribute__((interrupt));
-void DMA1_Stream2_IRQHandler(void) __attribute__((interrupt));
-void I2C3_ER_IRQHandler(void) __attribute__((interrupt));
+void I2C3_EV_IRQHandler(void) __attribute__((interrupt));		// прерывание при событиях на шине I2C
+void DMA1_Stream4_IRQHandler(void) __attribute__((interrupt));	// прерываение по окончании DMA записи по I2C
+void DMA1_Stream2_IRQHandler(void) __attribute__((interrupt));	// прерывание по окончании DMA чтения по I2C
+void I2C3_ER_IRQHandler(void) __attribute__((interrupt));		// прерывание при ошибке на шине I2C
 
 #ifdef __cplusplus
 };
 #endif
 
-SemaphoreHandle_t i2c_lock;
+SemaphoreHandle_t i2c_lock;						// мьютекс для защиты одновременного использования I2C разными задачами
 
-__IO uint8_t  ubMasterRequestDirection  = 0;
-__IO uint8_t  ubMasterNbDataToReceive   = 1;
-__IO uint8_t  ubMasterTransferComplete  = 0;
-//__IO uint8_t  dmaComplete = 0;
+__IO uint8_t  ubMasterRequestDirection  = 0;	// переменная для хранения бита приём/передача
+__IO uint8_t  ubMasterNbDataToReceive   = 1;	// длина передаваемого/принимаемого сообщения
 
-uint8_t device_addr;
-uint8_t ubDirection = 0;
-const void *pdata;
+uint8_t device_addr;							// "чистый" адрес устройства (без бита приём/передача)
+uint8_t ubDirection = 0;						// запрошенный тип транзакции (запись/чтение)
+const void *pdata;								// указатель на принимаемые/передаваемые данные
 
-TaskHandle_t xHandlingTask;
+TaskHandle_t xHandlingTask;						// дескриптор привязанной к контроллеру задачи
 
 
-/**
-  * Brief   This function handles I2C3 (Master) interrupt request.
-  * Param   None
-  * Retval  None
-  */
+/*
+	Функция обработчика прерывания по событию на шине i2c
+*/
 void I2C3_EV_IRQHandler(void)
 {
-  /* Check SB flag value in ISR register */
+  /* Событие - "старт-бит передан" */
   if(LL_I2C_IsActiveFlag_SB(I2C3))
   {
-    /* Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a ubMasterRequestDirection request */
+    /* передаём адрес устройства */
     LL_I2C_TransmitData8(I2C3, device_addr | ubMasterRequestDirection);
   }
-  /* Check ADDR flag value in ISR register */
+  /* Событие - адрес устройства передан */
   else if(LL_I2C_IsActiveFlag_ADDR(I2C3))
   {
-	  if (LL_I2C_GetTransferDirection(I2C3) == LL_I2C_DIRECTION_WRITE) {
-    /* Clear ADDR flag value in ISR register */
-		LL_I2C_EnableDMAReq_TX(I2C3);
-	  } else {
-		  if(ubMasterNbDataToReceive == 1) {
-			// Prepare the generation of a Non ACKnowledge condition after next received byte 
-			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
+	  if (LL_I2C_GetTransferDirection(I2C3) == LL_I2C_DIRECTION_WRITE) {	// если адрес был передан с битом "запись"
+    /* */
+		LL_I2C_EnableDMAReq_TX(I2C3);										// Стартуем DMA передачу по I2C 
+	  } else {																// если адрес был передан с битом "чтение"
+		  if(ubMasterNbDataToReceive == 1) {								// если нужно прочитать только 1 байт
+
+			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);					// по завершению приёма байта выдать на линию NACK
 		  }
-		  else if(ubMasterNbDataToReceive == 2) {
-			// Prepare the generation of a Non ACKnowledge condition after next received byte 
-			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);
-			// Enable Pos
-			LL_I2C_EnableBitPOS(I2C3);
-		  } else {
-			LL_I2C_EnableLastDMA(I2C3);
+		  else if(ubMasterNbDataToReceive == 2) {							// если нужно принять 2 байта
+
+			LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_NACK);					// заряжаем ответ NACK
+
+			LL_I2C_EnableBitPOS(I2C3);										// выставляем Pos
+		  } else {															// если нужно принять больше 2-х байт
+			LL_I2C_EnableLastDMA(I2C3);										// выдадим NACK по последней DMA-транзакции
 		  }
-		  LL_I2C_EnableDMAReq_RX(I2C3);
+		  LL_I2C_EnableDMAReq_RX(I2C3);										// запускаем DMA-чтение
 	  }
- 	  LL_I2C_ClearFlag_ADDR(I2C3);
+ 	  LL_I2C_ClearFlag_ADDR(I2C3);											// сбрасываем признак прерывания по передаче адреса устройства
   }
-  else if (LL_I2C_IsActiveFlag_BTF(I2C3)) {
-	  if (ubDirection == I2C_REQUEST_READ) {	// read option
-		LL_I2C_GenerateStartCondition(I2C3);
-	  } else {
-		LL_I2C_GenerateStopCondition(I2C3);
-		if (xHandlingTask != NULL) {
+  else if (LL_I2C_IsActiveFlag_BTF(I2C3)) {									// если последний байт передан
+	  if (ubDirection == I2C_REQUEST_READ) {								// если запрошено чтение информации
+		LL_I2C_GenerateStartCondition(I2C3);								// значит передавали адрес начала массива на чтение, выставляем repeated start
+	  } else {																// иначе запрошена запись информации и запись завершена
+		LL_I2C_GenerateStopCondition(I2C3);									// выставляем stop condition
+		if (xHandlingTask != NULL) {										// если к контроллеру привязана задача
 			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+			xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );	// сигнализируем ей о завершении процедуры
 			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 		}
 	  }
@@ -91,22 +91,18 @@ void I2C3_EV_IRQHandler(void)
 }
 
 
-/**
-  * Brief   This function handles I2C3 (Master) error interrupt request.
-  * Param   None
-  * Retval  None
-  */
+/*
+	Функция обработчика прерывания при ошибке на линии I2C
+*/
 
 void I2C3_ER_IRQHandler(void)
 {
-//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-  // Call Error function
+	// Сбрасываем все флаги ошибок
 	LL_I2C_ClearFlag_BERR(I2C3);
 	LL_I2C_ClearFlag_AF(I2C3);
 	LL_I2C_ClearFlag_ARLO(I2C3);
 	
-//	LL_I2C_ClearFlag_OVR(I2C3);
+	// Останавливаем все связанные с I2C DMA
 	
 	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_4);
 	LL_DMA_ClearFlag_HT4(DMA1);
@@ -115,7 +111,9 @@ void I2C3_ER_IRQHandler(void)
 	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
 	LL_DMA_ClearFlag_HT2(DMA1);
     LL_DMA_ClearFlag_TC2(DMA1);
+	// Выставляем стоп-условие
 	LL_I2C_GenerateStopCondition(I2C3);
+	// Если к I2C привязана задача, сигнализируем ей об окончании процедуры
 	if (xHandlingTask != NULL) {
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 		xTaskNotifyFromISR( xHandlingTask, I2C_ERROR, eSetBits, &xHigherPriorityTaskWoken );
@@ -123,259 +121,215 @@ void I2C3_ER_IRQHandler(void)
 	}
 }
 
-/**
-  * @brief  This function handles DMA1_Stream5 interrupt request.
-  * @param  None
-  * @retval None
-  */
+/*
+	Прерывание после окончания DMA-записи
+*/
 void DMA1_Stream4_IRQHandler(void)
 {
 
-  if(LL_DMA_IsActiveFlag_TC4(DMA1))
+  if(LL_DMA_IsActiveFlag_TC4(DMA1))												// транзакция DMA завершена
   {
-    LL_DMA_ClearFlag_TC4(DMA1);
+    LL_DMA_ClearFlag_TC4(DMA1);													// сбрасываем признак завершения
 
-	if (ubDirection == I2C_REQUEST_READ) {	// read option
-		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_2, (uint32_t)pdata);
+	if (ubDirection == I2C_REQUEST_READ) {										// если запрошено чтение информации
+		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_2, (uint32_t)pdata);		// настраиваем "читающий" поток DMA
 		LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_2, ubMasterNbDataToReceive);
 		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_2);
 		ubMasterRequestDirection = I2C_REQUEST_READ;
-	} else {
-		if (ubMasterNbDataToReceive) {
-		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);
+	} else {																	// если запрошена запись информации
+		if (ubMasterNbDataToReceive) {											// если первое завершение записи (передан адрес)
+		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)pdata);		// перенастраиваем "пишущий" поток DMA
 		LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, ubMasterNbDataToReceive);
 		LL_I2C_EnableDMAReq_TX(I2C3);
 		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
-		ubMasterNbDataToReceive = 0;
+		ubMasterNbDataToReceive = 0;											// сбрасываем для предотвращения повторного выполнения данного кода
 		}
 	}
   }
- /* else if(LL_DMA_IsActiveFlag_TE5(DMA1))
-  {
-    Transfer_Error_Callback();
-  }*/
 }
 
-/**
-  * @brief  This function handles DMA1_Stream2 interrupt request.
-  * @param  None
-  * @retval None
-  */
+/*
+	Прерывание после окончания DMA-чтения
+*/
 void DMA1_Stream2_IRQHandler(void)
 {
-  if(LL_DMA_IsActiveFlag_TC2(DMA1))
+  if(LL_DMA_IsActiveFlag_TC2(DMA1))							// транзакция DMA завершена
   {
-    LL_DMA_ClearFlag_TC2(DMA1);
-	LL_I2C_GenerateStopCondition(I2C3);
-	if (xHandlingTask != NULL) {
+    LL_DMA_ClearFlag_TC2(DMA1);								// сбрасываем признак завершения
+	LL_I2C_GenerateStopCondition(I2C3);						// выставляем стоп-условие
+	if (xHandlingTask != NULL) {							// если к I2C привязана задача
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-		xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );
+		xTaskNotifyFromISR( xHandlingTask, I2C_COMPLETE, eSetBits, &xHigherPriorityTaskWoken );	// оповещаем её о завершении процедуры
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
   }
-/*  else if(LL_DMA_IsActiveFlag_TE2(DMA1))
-  {
-    Transfer_Error_Callback();
-  }*/
 }
 
+/*
+	Процедура инициализации DMA-контроллера для I2C
+*/
 static void Configure_DMA(void)
 {
-	/* (2) Configure NVIC for DMA1_Stream5 and DMA1_Stream2 */
+	/* (2) Настраиваем прерывания от передающих и принимающих потоков DMA */
 	NVIC_SetPriority(DMA1_Stream4_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);
 	NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   
 	NVIC_SetPriority(DMA1_Stream2_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+4);
 	NVIC_EnableIRQ(DMA1_Stream2_IRQn);
 
-	/* (3) Configure the DMA functional parameters for Master Transmit */
+	/* (3) Конфигурируем передающий поток DMA */
 
-	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_4, LL_DMA_CHANNEL_3);
+	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_4, LL_DMA_CHANNEL_3);	// включаем поток 4 канал 3
 
-	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_4, LL_DMA_DIRECTION_MEMORY_TO_PERIPH | \
-												LL_DMA_PRIORITY_HIGH               | \
-												LL_DMA_MODE_NORMAL                 | \
-												LL_DMA_PERIPH_NOINCREMENT          | \
-												LL_DMA_MEMORY_INCREMENT            | \
-												LL_DMA_PDATAALIGN_BYTE             | \
-												LL_DMA_MDATAALIGN_BYTE);
-	LL_DMA_ConfigAddresses(	DMA1,
+	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_4, LL_DMA_DIRECTION_MEMORY_TO_PERIPH | \		// направление потока: память -> периферия
+												LL_DMA_PRIORITY_HIGH               | \		// высокий приоритет
+												LL_DMA_MODE_NORMAL                 | \		// режим NORMAL
+												LL_DMA_PERIPH_NOINCREMENT          | \		// Адрес периферии не инкрементируется
+												LL_DMA_MEMORY_INCREMENT            | \		// Адрес в памяти инкрементируется
+												LL_DMA_PDATAALIGN_BYTE             | \		// Выравнивание на стороне периферии - побайтно
+												LL_DMA_MDATAALIGN_BYTE);					// Выравнивание на стороне памяти - побайтно
+	LL_DMA_ConfigAddresses(	DMA1,															// Устанавливаем указатели адресов DMA:
 							LL_DMA_STREAM_4,
-							(uint32_t)NULL,
-							(uint32_t)LL_I2C_DMA_GetRegAddr(I2C3),
+							(uint32_t)NULL,													// Указатель в памяти будет установлен позже
+							(uint32_t)LL_I2C_DMA_GetRegAddr(I2C3),							// Указатель в периферии I2C3->DR
 							LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_4));
 
 
-	/* (4) Configure the DMA functional parameters for Master Receive */
-	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_2, LL_DMA_CHANNEL_3);
+	/* (4) Конфигурируем принимающий поток DMA */
+	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_2, LL_DMA_CHANNEL_3);					// Включаем поток 2 канал 3
 
-	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_2, LL_DMA_DIRECTION_PERIPH_TO_MEMORY  | \
-												LL_DMA_PRIORITY_HIGH				| \
-												LL_DMA_MODE_NORMAL					| \
-												LL_DMA_PERIPH_NOINCREMENT			| \
-												LL_DMA_MEMORY_INCREMENT				| \
-												LL_DMA_PDATAALIGN_BYTE				| \
-												LL_DMA_MDATAALIGN_BYTE);
+	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_2, LL_DMA_DIRECTION_PERIPH_TO_MEMORY  | \		// направление потока: периферия -> память
+												LL_DMA_PRIORITY_HIGH				| \		// высокий приоритет
+												LL_DMA_MODE_NORMAL					| \		// режим NORMAL
+												LL_DMA_PERIPH_NOINCREMENT			| \		// Адрес периферии не инкрементируется
+												LL_DMA_MEMORY_INCREMENT				| \		// Адрес памяти инкрементируется
+												LL_DMA_PDATAALIGN_BYTE				| \		// Выравнивание на стороне периферии - побайтно
+												LL_DMA_MDATAALIGN_BYTE);					// Выравнивание на стороне памяти - побайтно
 
-	LL_DMA_ConfigAddresses(	DMA1,
+	LL_DMA_ConfigAddresses(	DMA1,															// Устанавливаем указатели адресов DMA
 							LL_DMA_STREAM_2,
-							(uint32_t)LL_I2C_DMA_GetRegAddr(I2C3),
-							(uint32_t)NULL,
+							(uint32_t)LL_I2C_DMA_GetRegAddr(I2C3),							// Указатель в периферии I2C3->DR
+							(uint32_t)NULL,													// Указатель в памяти будет установлен позже
 							LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_2));
 
-	/* (5) Enable DMA1 interrupts complete/error */
+	/* (5) Разрешаем прерывания от потоков DMA */
 	LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_4);
-//	LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_4);
 	LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_2);
-//	LL_DMA_EnableIT_TE(DMA1, LL_DMA_STREAM_2);
-
 }
 
-
+/*
+	Функция конфигурирования I2C контроллера
+*/
 void Configure_I2C_Master(void)
 {
-	LL_RCC_ClocksTypeDef rcc_clocks;
+	LL_RCC_ClocksTypeDef rcc_clocks;	// структура для чтения системных частот
 
-	/* (1) Enables GPIO clock and configures the I2C3 pins **********************/
-	/*    (SCL on PA.8, SDA on PC.9)                     **********************/
+	/* (1) Настраиваем SCL и SDA пины контроллера I2C3 **********************/
 
-	/* Configure SCL Pin as : Alternate function, High Speed, Open drain, Pull up */
+	/* Конфигурируем вывод SCL GPIOA.9 как : AF4, High Speed, Open drain, Pull up */
 	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_8, LL_GPIO_MODE_ALTERNATE);
 	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_8, LL_GPIO_AF_4);
 	LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_8, LL_GPIO_SPEED_FREQ_HIGH);
 	LL_GPIO_SetPinOutputType(GPIOA, LL_GPIO_PIN_8, LL_GPIO_OUTPUT_OPENDRAIN);
 	LL_GPIO_SetPinPull(GPIOA, LL_GPIO_PIN_8, LL_GPIO_PULL_UP);
 
-	/* Configure SDA Pin as : Alternate function, High Speed, Open drain, Pull up */
+	/* Настраиваем вывод SDA GPIOC.9 как : AF4, High Speed, Open drain, Pull up */
 	LL_GPIO_SetPinMode(GPIOC, LL_GPIO_PIN_9, LL_GPIO_MODE_ALTERNATE);
 	LL_GPIO_SetAFPin_8_15(GPIOC, LL_GPIO_PIN_9, LL_GPIO_AF_4);
 	LL_GPIO_SetPinSpeed(GPIOC, LL_GPIO_PIN_9, LL_GPIO_SPEED_FREQ_HIGH);
 	LL_GPIO_SetPinOutputType(GPIOC, LL_GPIO_PIN_9, LL_GPIO_OUTPUT_OPENDRAIN);
 	LL_GPIO_SetPinPull(GPIOC, LL_GPIO_PIN_9, LL_GPIO_PULL_UP);
 
-	/* (2) Enable the I2C3 peripheral clock *************************************/
+	/* (2) Подаём на I2C3 тактовую частоту *************************************/
 
-	/* Enable the peripheral clock for I2C3 */
 	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C3);
 
-	/* (3) Configure NVIC for I2C3 **********************************************/
+	/* (3) Конфигурируем прерывания по событию и ошибке для I2C3 **********************************************/
 
-	/* Configure Event IT:
-		*  - Set priority for I2C3_EV_IRQn
-		*  - Enable I2C3_EV_IRQn
-	*/
 	NVIC_SetPriority(I2C3_EV_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+5);  
 	NVIC_EnableIRQ(I2C3_EV_IRQn);
 
-	/* Configure Error IT:
-		*  - Set priority for I2C3_ER_IRQn
-		*  - Enable I2C3_ER_IRQn
-	*/
 	NVIC_SetPriority(I2C3_ER_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+5);  
 	NVIC_EnableIRQ(I2C3_ER_IRQn);
 
-	/* (4) Configure I2C3 functional parameters ********************************/
+	/* (4) Настраиваем частоту и форму сигнала I2C ********************************/
   
-	/* Disable I2C3 prior modifying configuration registers */
+	/* Отключаем контроллер */
 	LL_I2C_Disable(I2C3);
 
-	/* Retrieve Clock frequencies */
+	/* Читаем системные частоты процессора */
 	LL_RCC_GetSystemClocksFreq(&rcc_clocks);
 
-	/* Configure the SCL Clock Speed */
+	/* Настраиваем частоту и форму I2C SCL сигнала */
 	LL_I2C_ConfigSpeed(I2C3, rcc_clocks.PCLK1_Frequency, I2C_SPEEDCLOCK, LL_I2C_DUTYCYCLE_2);
 
-	/* Configure the Own Address1                   */
-	/* Reset Values of :
-		*     - OwnAddress1 is 0x00
-		*     - OwnAddrSize is LL_I2C_OWNADDRESS1_7BIT
-	*/
-	//LL_I2C_SetOwnAddress1(I2C3, 0x00, LL_I2C_OWNADDRESS1_7BIT);
-
-	/* Enable Clock stretching */
-	/* Reset Value is Clock stretching enabled */
-	//LL_I2C_EnableClockStretching(I2C3);
-
-
-	/* Enable General Call                  */
-	/* Reset Value is General Call disabled */
-	//LL_I2C_EnableGeneralCall(I2C3);
-
-	/* Configure the 7bits Own Address2     */
-	/* Reset Values of :
-		*     - OwnAddress2 is 0x00
-		*     - Own Address2 is disabled
-	*/
-	//LL_I2C_SetOwnAddress2(I2C3, 0x00);
-	//LL_I2C_DisableOwnAddress2(I2C3);
-
-	/* Enable Peripheral in I2C mode */
-	/* Reset Value is I2C mode */
-	//LL_I2C_SetMode(I2C3, LL_I2C_MODE_I2C);
-
-	/* (1) Enable I2C3 **********************************************************/
+	/* (1) Включаем контроллер **********************************************************/
 	LL_I2C_Enable(I2C3);
 
-	/* (2) Enable I2C3 transfer event/error interrupts:
-		*  - Enable Event interrupts
-		*  - Enable Error interrupts
+	/* (2) Разрешаем прерывания от I2C3 контроллера
+		*  - Прерывание по событию
+		*  - Прерывание по ошибке
 	*/
 	LL_I2C_EnableIT_EVT(I2C3);
 	LL_I2C_EnableIT_ERR(I2C3);
 }
 
+/*
+	Процедура инициализации I2C (контроллер + DMA)
+*/
 void Init_I2C(void)
 {
-	i2c_lock = xSemaphoreCreateMutex();
-	Configure_I2C_Master();
-	Configure_DMA();
+	i2c_lock = xSemaphoreCreateMutex();	// инициализируем мьютекс
+	Configure_I2C_Master();				// инициализируем контроллер
+	Configure_DMA();					// инициализируем DMA
 }
 
+/*
+	Процедура чтения/записи по шине i2c
+	dev - адрес i2c устройства (если LSB == 0 - запись, LSB == 1 - чтение)
+	addr - адрес в памяти устройства куда нужно записать (откуда нужно считать)
+	len - длина массива data в байтах
+	data - указатель на массив байт который ножно записать/прочитать из устройства
+	T может быть uint8_t (при работе с RTC) или uint16_t (при работе с EEPROM)
+*/
 template <typename T>
 BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data)
 {
-	static T reg_addr;
-	uint32_t ulNotifiedValue;
-	if (xSemaphoreTake( i2c_lock, portMAX_DELAY ) == pdFAIL) return pdFAIL;
+	static T reg_addr;															// локальная переменная хранения адреса в памяти устройства
+	uint32_t ulNotifiedValue;													// переменная для функции xTaskNotifyWait
+	if (xSemaphoreTake( i2c_lock, portMAX_DELAY ) == pdFAIL) return pdFAIL;		// захватываем мьютекс
 	
-	reg_addr = addr;
-	device_addr = dev & ~I2C_REQUEST_READ;
-	ubDirection = dev & I2C_REQUEST_READ;
-	pdata = data;
-	ubMasterTransferComplete = 0;
-	xHandlingTask = xTaskGetCurrentTaskHandle();
-  /* (1) Configure DMA parameters for Command Code transfer *******************/
-//  pMasterTransmitBuffer    = (uint32_t*)(&aCommandCode[ubMasterCommandIndex][0]);
-//  ubMasterNbDataToTransmit = sizeof(T);
+	reg_addr = addr;															// сохраняем адрес локально
+	device_addr = dev & ~I2C_REQUEST_READ;										// получаем "чистый" адрес устройства
+	ubDirection = dev & I2C_REQUEST_READ;										// получаем запрашиваемый тип транзакции (запись/чтение)
+	pdata = data;																// сохраняем указатель на буфер данных локально
+	xHandlingTask = xTaskGetCurrentTaskHandle();								// привязываем текущую задачу к контроллеру
+	/* (1) Устанавливаем указатель DMA и счётчик байт  *******************/
 
-  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);
-  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, sizeof(T));
-  ubMasterNbDataToReceive = len;
-  /* (2) Enable DMA transfer **************************************************/
- 		LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
-   
-  /* (3) Prepare acknowledge for Master data reception ************************/
-  LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);
+	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);			// указатель DMA на адрес в памяти устройства
+	LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_4, sizeof(T));						// счётчик байт равен длине адреса
+	ubMasterNbDataToReceive = len;												// количество байт на передачу равно размеру буфера данных
+	/* (2) Включаем поток DMA (будет ожидать запроса контроллера) **********/
+ 	LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_4);
 
-  /* (4) Initiate a Start condition to the Slave device ***********************/
-  /* Master Request direction WRITE */
-  ubMasterRequestDirection = I2C_REQUEST_WRITE;
+	/* (3) Разрешаем выдачу ACK после каждого байта ************************/
+	LL_I2C_AcknowledgeNextData(I2C3, LL_I2C_ACK);
 
-  /* Master Generate Start condition */
-  LL_I2C_GenerateStartCondition(I2C3);
+	/* устанавливаем бит чтение/запись на запись */
+	ubMasterRequestDirection = I2C_REQUEST_WRITE;
+
+	/* Выставляем старт-условие на шину I2C */
+	LL_I2C_GenerateStartCondition(I2C3);
   
-  
-  xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, 100 );
-//  while(!ubMasterTransferComplete);
-//  ubMasterTransferComplete = 0;
-
+	// Ожидаем окончания передачи/приёма
+	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, 100 );
+	// Освобождаем мьютекс
 	xSemaphoreGive( i2c_lock );
-
 	
 	return pdPASS;
 }
 
 template
-BaseType_t i2c<uint8_t>(uint8_t dev, uint8_t addr, uint32_t len, const void* data);
+BaseType_t i2c<uint8_t>(uint8_t dev, uint8_t addr, uint32_t len, const void* data);		// экземпляр функции для 8-ми битного адреса
 template
-BaseType_t i2c<uint16_t>(uint8_t dev, uint16_t addr, uint32_t len, const void* data);
+BaseType_t i2c<uint16_t>(uint8_t dev, uint16_t addr, uint32_t len, const void* data);	// экземпляр функции для 16-и битного адреса

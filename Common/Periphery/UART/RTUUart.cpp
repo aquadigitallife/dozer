@@ -1,163 +1,185 @@
+/*
+	Модуль для работы с UART RTU
+*/
 #include "Global.h"
 
-#define sbiSTREAM_BUFFER_TRIGGER_LEVEL_1	( ( BaseType_t ) 1 )
+#define sbiSTREAM_BUFFER_TRIGGER_LEVEL_1	( ( BaseType_t ) 1 )	// начальный порог ожидания байт в стримбуфере = 1
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void DMA1_Stream1_IRQHandler(void) __attribute__((interrupt));
-void UART7_IRQHandler(void) __attribute__((interrupt));
+void DMA1_Stream1_IRQHandler(void) __attribute__((interrupt));	// обработчик прерывания передающего потока DMA
+void UART7_IRQHandler(void) __attribute__((interrupt));			// обработчик прерывания контроллера UART по приёму байта
 
 #ifdef __cplusplus
 };
 #endif
 
-/* The stream buffer that is used to send data from an interrupt to the task. */
+/* дескриптор стримбуфера для передачи данных из обработчика прерывания в задачу */
 static StreamBufferHandle_t RTUStreamBuffer = NULL;
 
+/*
+	Функция инициализации RTU UART
+*/
 static void InitRTUUartEngine(void)
 {
-  /* Configure Tx Pin as : Alternate function, High Speed, Push pull, Pull up */
+  /* Конфигурируем Tx Pin как : Alternate function, High Speed, Push pull, Pull up */
   LL_GPIO_SetPinMode(GPIOE, LL_GPIO_PIN_8, LL_GPIO_MODE_ALTERNATE);
   LL_GPIO_SetAFPin_8_15(GPIOE, LL_GPIO_PIN_8, LL_GPIO_AF_8);
   LL_GPIO_SetPinSpeed(GPIOE, LL_GPIO_PIN_8, LL_GPIO_SPEED_FREQ_HIGH);
   LL_GPIO_SetPinOutputType(GPIOE, LL_GPIO_PIN_8, LL_GPIO_OUTPUT_PUSHPULL);
   LL_GPIO_SetPinPull(GPIOE, LL_GPIO_PIN_8, LL_GPIO_PULL_UP);
   
-  /* Configure Rx Pin as : Alternate function, High Speed, Push pull, Pull up */
+  /* Конфигурируем Rx Pin как : Alternate function, High Speed, Push pull, Pull up */
   LL_GPIO_SetPinMode(GPIOE, LL_GPIO_PIN_7, LL_GPIO_MODE_ALTERNATE);
   LL_GPIO_SetAFPin_0_7(GPIOE, LL_GPIO_PIN_7, LL_GPIO_AF_8);
   LL_GPIO_SetPinSpeed(GPIOE, LL_GPIO_PIN_7, LL_GPIO_SPEED_FREQ_HIGH);
   LL_GPIO_SetPinOutputType(GPIOE, LL_GPIO_PIN_7, LL_GPIO_OUTPUT_PUSHPULL);
   LL_GPIO_SetPinPull(GPIOE, LL_GPIO_PIN_7, LL_GPIO_PULL_UP);
 
-  /* (2) NVIC Configuration for USART interrupts */
-  /*  - Set priority for USARTx_IRQn */
-  /*  - Enable USARTx_IRQn */
+  /* (1) Конфигурируем прерывания от UART */
   NVIC_SetPriority(UART7_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);  
   NVIC_EnableIRQ(UART7_IRQn);
-  /* (2) Enable UART7 peripheral clock and clock source ****************/
+  /* (2) Подаём тактовую частоту на контроллер UART ****************/
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_UART7);
 
-  /* (3) Configure UART7 functional parameters ********************************/
-  
-  /* Disable UART prior modifying configuration registers */
-  /* Note: Commented as corresponding to Reset value */
+  /* Отключаем UART перед конфигурированием */
+  /* Закоментировано, поскольку отключен после резета */
   // LL_USART_Disable(UART7);
 
-  /* TX/RX direction */
+  /* Настраиваем двунаправленный обмен */
   LL_USART_SetTransferDirection(UART7, LL_USART_DIRECTION_TX_RX);
 
-  /* 8 data bit, 1 start bit, 1 stop bit, no parity */
+  /* 8 бит данных, 1 стартовый бит, 1 стоповый бит, без контроля чётности */
   LL_USART_ConfigCharacter(UART7, LL_USART_DATAWIDTH_8B, LL_USART_PARITY_NONE, LL_USART_STOPBITS_1);
 
-  /* No Hardware Flow control */
-  /* Reset value is LL_USART_HWCONTROL_NONE */
+  /* Без аппаратного контроля потока */
+  /* Значение устанавливается после сброса */
   // LL_USART_SetHWFlowCtrl(USART2, LL_USART_HWCONTROL_NONE);
 
-  /* Oversampling by 16 */
-  /* Reset value is LL_USART_OVERSAMPLING_16 */
+  /* 16-ти кратный оверсемплинг */
+  /* Значение устанавливается после сброса */
   // LL_USART_SetOverSampling(USART2, LL_USART_OVERSAMPLING_16);
 
-  /* Set Baudrate to 115200 using APB frequency set to SystemCoreClock/4 Hz */
+  /* Частота обмена 921600 б/с при частоте APB шины установленной в SystemCoreClock/4 Hz */
   LL_USART_SetBaudRate(UART7, SystemCoreClock/4, LL_USART_OVERSAMPLING_16, 921600); 
 
-  /* (4) Enable UART7 **********************************************************/
+  /* (4) Включаем USART7 **********************************************************/
   LL_USART_Enable(UART7);
 
-  /* Enable RXNE and Error interrupts */
+  /* Разрешаем прерывания по приёму байта */
   LL_USART_EnableIT_RXNE(UART7);
-//  LL_USART_EnableIT_ERROR(UART7);
-
 }
 
+/*
+	Функция инициализации контроллера DMA для UART7
+*/
 static void InitRTUUartDMA(void)
 {
-	/* (1) Enable the clock of DMA1 */
+	/* (1) Подаём тактовую частоту на контроллер DMA1 */
 //  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1); 
 
-  /* (2) Configure NVIC for DMA transfer complete/error interrupts */
+  /* (2) Конфигурируем прерывание от передающего потока DMA */
   NVIC_SetPriority(DMA1_Stream1_IRQn, configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+3);
   NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 
-  /* (3) Configure the DMA functional parameters for transmission */
-  LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_1, LL_DMA_CHANNEL_5);
+  /* (3) Конфигурируем передающий поток DMA */
+  LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_1, LL_DMA_CHANNEL_5);				// Включаем поток 1 канал 5
   LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_1, 
-                        LL_DMA_DIRECTION_MEMORY_TO_PERIPH | 
-                        LL_DMA_PRIORITY_LOW               | 
-                        LL_DMA_MODE_NORMAL                | 
-                        LL_DMA_PERIPH_NOINCREMENT         | 
-                        LL_DMA_MEMORY_INCREMENT           | 
-                        LL_DMA_PDATAALIGN_BYTE            | 
-                        LL_DMA_MDATAALIGN_BYTE);
+                        LL_DMA_DIRECTION_MEMORY_TO_PERIPH | 						// направление память -> периферия 
+                        LL_DMA_PRIORITY_LOW               | 						// приоритет низкий 
+                        LL_DMA_MODE_NORMAL                | 						// режим NORMAL
+                        LL_DMA_PERIPH_NOINCREMENT         | 						// адрес в периферии не инкрементируем
+                        LL_DMA_MEMORY_INCREMENT           | 						// адрес в памяти инкрементируем
+                        LL_DMA_PDATAALIGN_BYTE            | 						// выравнивание на стороне периферии - побайтное 
+                        LL_DMA_MDATAALIGN_BYTE);									// выравнивание на стороне памяти - побайтовое
   LL_DMA_ConfigAddresses(DMA1, LL_DMA_STREAM_1,
-                         (uint32_t)NULL,
-                         LL_USART_DMA_GetRegAddr(UART7),
+                         (uint32_t)NULL,											// указатель в памяти установим позже
+                         LL_USART_DMA_GetRegAddr(UART7),							// указатель в периферии USART3->DR
                          LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_STREAM_1));
-  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, 0);
+  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, 0);									// размер транзакции установим позже
   
-  LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_1);
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_STREAM_1);										// разрешаем прерывание от передающего потока DMA
 
 }
 
+/*
+	Функция обработчика прерывания от DMA
+*/
 void DMA1_Stream1_IRQHandler(void)
 {
-    LL_DMA_ClearFlag_TC1(DMA1);
+    LL_DMA_ClearFlag_TC1(DMA1);		// сбрасываем признак окончания передачи по DMA
 }
 
-
+/*
+	Функция обработчика прерывания USART по приёму байта
+*/
 void UART7_IRQHandler(void)
 {
-  __IO uint8_t received_char;
+  __IO uint8_t received_char;	// переменная хранения принятого значения
   
-  /* Check RXNE flag value in SR register */
+  /* Если установлен флаг принятого байта */
   if(LL_USART_IsActiveFlag_RXNE(UART7) && LL_USART_IsEnabledIT_RXNE(UART7))
   {
-  /* Read Received character. RXNE flag is cleared by reading of DR register */
+  /* Читаем принятый байт. При этом флаг прерывания автоматически сбрасывается */
 	received_char = LL_USART_ReceiveData8(UART7);
 
-	/* Send the received character to the stream buffer. */
+	/* Записываем принятый байт в стримбуфер. */
 	if (RTUStreamBuffer)
 		xStreamBufferSendFromISR( RTUStreamBuffer, (const uint8_t*)&received_char, 1, NULL );
   }
-//  else
-//  {
-    /* Call Error function */
-//    Error_Callback();
-//  }
-	
 }
 
+/*
+	Функция инициализации RTU UART
+	xBufferSizeBytes - размер создаваемого для приёма байт стрингбуфера
+	Функция возвращает указатель на созданный стримбуфер
+*/
 StreamBufferHandle_t InitRTUUart(size_t xBufferSizeBytes)
 {
-	RTUStreamBuffer = xStreamBufferCreate( xBufferSizeBytes, sbiSTREAM_BUFFER_TRIGGER_LEVEL_1 );
-	InitRTUUartEngine();
-	InitRTUUartDMA();
+	RTUStreamBuffer = xStreamBufferCreate( xBufferSizeBytes, sbiSTREAM_BUFFER_TRIGGER_LEVEL_1 );	// создаём стримбуфер
+	InitRTUUartEngine();		// инициализируем контроллер
+	InitRTUUartDMA();			// инициализируем DMA
 	return RTUStreamBuffer;
 }
 
+/*
+	Функция передачи данных по UART RTU
+	len - длина передаваемого массива в байтах
+	data - указатель на передаваемый массив
+*/
 void RTUUartTx(size_t len, void *data)
 {
-  while (LL_DMA_IsActiveFlag_TC1(DMA1)) taskYIELD();
+  while (LL_DMA_IsActiveFlag_TC1(DMA1)) taskYIELD();	// Ожидаем пока не завершится предыдущая передача
 
-  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_1, (uint32_t)data);
-  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, len);
+  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_1, (uint32_t)data);	// Устанавливаем указатель DMA на передаваемый массив
+  LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_1, len);					// указываем передаваемое кол-во байт
 
-  // Enable DMA TX Request
+  // Разрешаем UART-запросы к DMA
   LL_USART_EnableDMAReq_TX(UART7);
 
-  // Enable DMA Channel Tx
+  // Включаем передающий поток DMA
   LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_1);
   
 }
 
+/*
+	Функция приёма данных из UART RTU
+	len - размер принимаемого массива байт
+	data - указатель на приёмный буфер
+*/
 size_t RTUUartRx(size_t len, void *data)
 {
 //	xStreamBufferReset( BLEStreamBuffer );
-	xStreamBufferSetTriggerLevel( RTUStreamBuffer, len );
-	return xStreamBufferReceive( RTUStreamBuffer, data, len, 500 );
+	xStreamBufferSetTriggerLevel( RTUStreamBuffer, len );			// устанавливаем новый порог ожидания в стримбуфере, равный длине принимающего массива
+	return xStreamBufferReceive( RTUStreamBuffer, data, len, 500 );	// читаем байты из стримбуфера
 }
+
+/*
+	Функция проверки наличия данных в стримбуфере
+	Возвращает количество байт в буфере
+*/
 
 size_t RTUUartPeek(void)
 {

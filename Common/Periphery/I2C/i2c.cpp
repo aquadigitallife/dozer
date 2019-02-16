@@ -181,13 +181,22 @@ static void Configure_DMA(void)
 
 	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_4, LL_DMA_CHANNEL_3);	// включаем поток 4 канал 3
 
-	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_4, LL_DMA_DIRECTION_MEMORY_TO_PERIPH | \		// направление потока: память -> периферия
-												LL_DMA_PRIORITY_HIGH               | \		// высокий приоритет
-												LL_DMA_MODE_NORMAL                 | \		// режим NORMAL
-												LL_DMA_PERIPH_NOINCREMENT          | \		// Адрес периферии не инкрементируется
-												LL_DMA_MEMORY_INCREMENT            | \		// Адрес в памяти инкрементируется
-												LL_DMA_PDATAALIGN_BYTE             | \		// Выравнивание на стороне периферии - побайтно
-												LL_DMA_MDATAALIGN_BYTE);					// Выравнивание на стороне памяти - побайтно
+/*
+	- направление потока: память -> периферия
+	- высокий приоритет
+	- режим NORMAL
+	- адрес периферии не инкрементируется
+	- адрес в памяти инкрементируется
+	- выравнивание на стороне периферии - побайтно
+	- выравнивание на стороне памяти - побайтно
+*/
+	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_4, LL_DMA_DIRECTION_MEMORY_TO_PERIPH | \
+												LL_DMA_PRIORITY_HIGH               | \
+												LL_DMA_MODE_NORMAL                 | \
+												LL_DMA_PERIPH_NOINCREMENT          | \
+												LL_DMA_MEMORY_INCREMENT            | \
+												LL_DMA_PDATAALIGN_BYTE             | \
+												LL_DMA_MDATAALIGN_BYTE);
 	LL_DMA_ConfigAddresses(	DMA1,															// Устанавливаем указатели адресов DMA:
 							LL_DMA_STREAM_4,
 							(uint32_t)NULL,													// Указатель в памяти будет установлен позже
@@ -198,13 +207,22 @@ static void Configure_DMA(void)
 	/* (4) Конфигурируем принимающий поток DMA */
 	LL_DMA_SetChannelSelection(DMA1, LL_DMA_STREAM_2, LL_DMA_CHANNEL_3);					// Включаем поток 2 канал 3
 
-	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_2, LL_DMA_DIRECTION_PERIPH_TO_MEMORY  | \		// направление потока: периферия -> память
-												LL_DMA_PRIORITY_HIGH				| \		// высокий приоритет
-												LL_DMA_MODE_NORMAL					| \		// режим NORMAL
-												LL_DMA_PERIPH_NOINCREMENT			| \		// Адрес периферии не инкрементируется
-												LL_DMA_MEMORY_INCREMENT				| \		// Адрес памяти инкрементируется
-												LL_DMA_PDATAALIGN_BYTE				| \		// Выравнивание на стороне периферии - побайтно
-												LL_DMA_MDATAALIGN_BYTE);					// Выравнивание на стороне памяти - побайтно
+/*
+	- направление потока: периферия -> память
+	- высокий приоритет
+	- режим NORMAL
+	- адрес периферии не инкрементируется
+	- адрес памяти инкрементируется
+	- выравнивание на стороне периферии - побайтно
+	- выравнивание на стороне памяти - побайтно
+*/
+	LL_DMA_ConfigTransfer(DMA1, LL_DMA_STREAM_2, LL_DMA_DIRECTION_PERIPH_TO_MEMORY  | \
+												LL_DMA_PRIORITY_HIGH				| \
+												LL_DMA_MODE_NORMAL					| \
+												LL_DMA_PERIPH_NOINCREMENT			| \
+												LL_DMA_MEMORY_INCREMENT				| \
+												LL_DMA_PDATAALIGN_BYTE				| \
+												LL_DMA_MDATAALIGN_BYTE);
 
 	LL_DMA_ConfigAddresses(	DMA1,															// Устанавливаем указатели адресов DMA
 							LL_DMA_STREAM_2,

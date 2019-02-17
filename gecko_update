@@ -1,0 +1,4 @@
+#! /bin/bash
+pushd Dozer/Main/Header/BLE
+for f in $(cat links); do echo "update $(basename $f)"; cp $f $(basename $f); done
+popd

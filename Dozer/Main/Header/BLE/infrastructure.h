@@ -1,1 +1,0 @@
-/c/Users/-/SimplicityStudio/v4_workspace/ncp-empty-target/app/bluetooth/common/util/infrastructure.h

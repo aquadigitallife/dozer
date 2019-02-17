@@ -4,10 +4,7 @@
 
 #include "Global.h"
 
-#include "infrastructure.h"
-
 /* BG stack headers */
-#include "bg_types.h"
 #include "gecko_bglib.h"
 #include "gatt_db.h"
 

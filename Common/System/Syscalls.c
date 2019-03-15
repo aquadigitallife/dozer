@@ -4,10 +4,16 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #undef errno
 extern int errno;
 extern int  _end;
+
+
+void RTUUartTx(size_t len, void *data);
+void GSMUartTx(size_t len, void *data);
+size_t GSMUartRx(size_t len, void *data);
 
 /*This function is used for handle heap option*/
 __attribute__((used))
@@ -32,6 +38,24 @@ int link(char *old, char *new)
 {
 	(void)old;
 	(void)new;
+	return -1;
+}
+/*
+	Возможные значения flags:
+#define	O_RDONLY	0		// +1 == FREAD
+#define	O_WRONLY	1		// +1 == FWRITE
+#define	O_RDWR		2		// +1 == FREAD|FWRITE
+#define	O_APPEND	_FAPPEND
+#define	O_CREAT		_FCREAT
+#define	O_TRUNC		_FTRUNC
+#define	O_EXCL		_FEXCL
+*/
+__attribute__((used))
+int _open(const char *name, int flags)
+{
+	(void)flags;
+	if (strcmp(name, "RTU") == 0) return 1;
+	if (strcmp(name, "GSM") == 0) return 3;
 	return -1;
 }
 
@@ -74,10 +98,15 @@ int _lseek(int file, int ptr, int dir)
 __attribute__((used))
 int _read(int file, char *ptr, int len)
 {
-	(void)file;
-	(void)ptr;
-	(void)len;
-
+	int retval;
+	switch (file) {
+		case 3:
+			retval = GSMUartRx(len, ptr);
+			break;
+//		default:
+//			return len;
+	}
+//	RTUUartTx(retval, ptr);
 #if 0
 	//user code example
 	int i;
@@ -91,21 +120,23 @@ int _read(int file, char *ptr, int len)
 
 #endif
 
-	return len;
+	return retval;
 }
 
-void RTUUartTx(size_t len, void *data);
 
 /*Low layer write(output) function*/
 
 __attribute__((used))
 int _write(int file, char *ptr, int len)
 {
-	(void)file;
-//	(void)ptr;
-//	(void)len;
-	
-	RTUUartTx(len, ptr);
+
+	switch (file) {
+		case 3:
+			GSMUartTx(len, ptr);
+			break;
+		default:
+			RTUUartTx(len, ptr);	//RTU
+	}
 
 #if 0
 	//user code example

@@ -12,7 +12,8 @@ CXXSRCS = \
 	WDG.cpp \
 	Buttons.cpp \
 	ad7799.cpp \
-	eeprom.cpp
+	eeprom.cpp \
+	gsm.cpp
 	
 INCDIRS = \
 ../../Header \

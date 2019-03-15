@@ -202,7 +202,7 @@ void AD7799Proc(void *Param)
 	xTaskCreate(AD7799Flt, "", configMINIMAL_STACK_SIZE, 0, TASK_PRI_LED, &Flt_TaskHandle);
 	// инициализируем основной фильтр
 	SampleFilter_init(&flt);
-	
+
 	while (1) {
 		static uint8_t flag = 0;	// делитель частоты обновления фильтра на 2 (для выдачи значений веса в BLE) 
 		int32_t iweight;	// вес в формате integer
@@ -211,8 +211,7 @@ void AD7799Proc(void *Param)
 		flt113 = SampleFilter_get(&flt);	// считываем выходное значение фильтра
 		weight = (flt113 - flt0)/51.02466;	// вычисляем вес: вычитаем смещение, делим на крутизну
 		iweight = (int32_t)weight;			// вес в формате integer для передачи в BLE
-//		LED_ERR_BLINK;						// сигнализация для отладки
-//		printf("%10.2f %10.2f\n", weight, doze);	// отладочный вывод текущего значения веса
+		LED_ERR_BLINK;						// сигнализация для отладки
 		flag ^= 0xFF;	// делитель частоты на 2
 		// С частотой в 2 раза меньшей частоты обновления фильтра, обновляем значение веса в БД BLE
 		if (flag == 0) if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);

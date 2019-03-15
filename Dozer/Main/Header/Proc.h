@@ -72,3 +72,21 @@ size_t RTUUartPeek(void);									// Проверка наличия сообщ�
 };
 #endif
 
+/*-----------------------------GSMUart------------------------------*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void GSMUartTx(size_t len, void *data);						// передача данных по UART GSM
+StreamBufferHandle_t InitGSMUart(size_t xBufferSizeBytes);	// инициализация UART GSM
+size_t GSMUartRx(size_t len, void *data);					// приём данных по UART GSM
+size_t GSMUartPeek(void);									// Проверка наличия сообщений от GSM
+void GSMUartClean(void);
+#ifdef __cplusplus
+};
+#endif
+
+/*-----------------------------GSM----------------------------------*/
+#define EEPROM_TOKEN	0x0008
+void gsm_init(void);
+void https_start(void *Param);

@@ -99,6 +99,8 @@ static inline void Init_RTOS()
 	// Обработка сигнала тензодатчика
 	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &AD7799TaskHandle);
 	
+	xTaskCreate(https_start, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &gsmTaskHandle);
+	
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);
 //	xTaskCreate(GyroTaskProc  , cpTASK[4] , configMINIMAL_STACK_SIZE      , 0, TASK_PRI_GYRO , &GyroTaskHandle);
@@ -193,6 +195,9 @@ static inline void Init_GPIO()
 	SM1_DISABLE;
 	SM1_FORWARD;
 	
+	GSM_PWR_OFF;
+	GSM_RST_OFF;
+	
 	// Светодиоды индикации
 	// PB2  - пульс
 	// PF11 - работа
@@ -210,7 +215,7 @@ static inline void Init_GPIO()
 	port.Speed = LL_GPIO_SPEED_FREQ_HIGH;
 	LL_GPIO_Init(GPIOB, &port);
 	// DO_CTRL1,2
-	port.Pin   = LL_GPIO_PIN_14 | LL_GPIO_PIN_15;
+	port.Pin   = LL_GPIO_PIN_14 | LL_GPIO_PIN_15 | LL_GPIO_PIN_8;
 	LL_GPIO_Init(GPIOC, &port);
 	// PF0...PF3 - оптовыходы (DO_CTRL3...6)
 	// PF11 - работа
@@ -228,6 +233,9 @@ static inline void Init_GPIO()
 	//Управление ШД
 	port.Pin   = LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_3 | LL_GPIO_PIN_4 | LL_GPIO_PIN_6;
 	LL_GPIO_Init(GPIOE, &port);
+	
+	port.Pin = LL_GPIO_PIN_0;
+	LL_GPIO_Init(GPIOA, &port);
 
 	port.Mode = LL_GPIO_MODE_INPUT;
 	port.Pull = LL_GPIO_PULL_UP;
@@ -306,6 +314,8 @@ void Init()
 	Init_SPI();
 	// Инициализация UART RTU (пока для отладки)
 	InitRTUUart(5);		// debug console
+	// Инициализация UART GSM
+	InitGSMUart(60);
 	// Настройка задач, очередей и прочего
 	Init_RTOS();
 

@@ -22,6 +22,7 @@ GL_EXP TaskHandle_t Motor0CycleHandle;
 GL_EXP TaskHandle_t BLETaskHandle;
 GL_EXP TaskHandle_t RTCTaskHandle;
 GL_EXP TaskHandle_t AD7799TaskHandle;
+GL_EXP TaskHandle_t gsmTaskHandle;
 GL_EXP TaskHandle_t WDG_TaskHandle;
 
 GL_EXP QueueHandle_t FlashCmd_Queue; // Очередь команд к Flash

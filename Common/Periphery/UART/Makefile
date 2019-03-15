@@ -6,7 +6,8 @@ CSRCS =
 
 CXXSRCS = \
 	BLEUart.cpp \
-	RTUUart.cpp
+	RTUUart.cpp \
+	GSMUart.cpp
 	
 INCDIRS = \
 . \

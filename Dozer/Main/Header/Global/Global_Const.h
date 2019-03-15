@@ -134,6 +134,12 @@ const uint32_t FW_VER = 0x03000600UL;
 
 #define IS_SM1_ENABLE		  ((GPIOE->IDR & (1 << 1)) == 0)
 
+// GSM
+#define GSM_PWR_ON            do {GPIOA->BSRR = GPIO_BSRR_BS_0;} while (0)
+#define GSM_PWR_OFF           do {GPIOA->BSRR = GPIO_BSRR_BR_0;} while (0)
+#define GSM_RST_ON            do {GPIOC->BSRR = GPIO_BSRR_BS_8;} while (0)
+#define GSM_RST_OFF           do {GPIOC->BSRR = GPIO_BSRR_BR_8;} while (0)
+
 #ifdef DEBUG_TRACE
 
 #define DBG_TR0_UP                      do { GPIOB->BSRR = GPIO_BSRR_BS3; } while(0)

@@ -19,11 +19,14 @@ void USART3_IRQHandler(void) __attribute__((interrupt));		// обработчи�
 /* дескриптор стримбуфера для передачи данных из обработчика прерывания в задачу */
 static StreamBufferHandle_t BLEStreamBuffer = NULL;
 
+static bool tx_on = false;
 /*
 	Функция инициализации BLE UART
 */
 static void InitBLEUartEngine(void)
 {
+	LL_RCC_ClocksTypeDef rcc_clocks;	// структура для чтения системных частот
+	
   /* Конфигурируем Tx Pin как : Alternate function, High Speed, Push pull, Pull up */
   LL_GPIO_SetPinMode(GPIOD, LL_GPIO_PIN_8, LL_GPIO_MODE_ALTERNATE);
   LL_GPIO_SetAFPin_8_15(GPIOD, LL_GPIO_PIN_8, LL_GPIO_AF_7);
@@ -62,8 +65,9 @@ static void InitBLEUartEngine(void)
   /* Значение устанавливается после сброса */
   // LL_USART_SetOverSampling(USART2, LL_USART_OVERSAMPLING_16);
 
+	LL_RCC_GetSystemClocksFreq(&rcc_clocks);
   /* Частота обмена 115200 б/с при частоте APB шины установленной в SystemCoreClock/4 Hz */
-  LL_USART_SetBaudRate(USART3, SystemCoreClock/4, LL_USART_OVERSAMPLING_16, 115200); 
+  LL_USART_SetBaudRate(USART3, rcc_clocks.PCLK1_Frequency, LL_USART_OVERSAMPLING_16, 115200); 
 
   /* (4) Включаем USART3 **********************************************************/
   LL_USART_Enable(USART3);
@@ -111,6 +115,7 @@ static void InitBLEUartDMA(void)
 void DMA1_Stream3_IRQHandler(void)
 {
     LL_DMA_ClearFlag_TC3(DMA1);		// сбрасываем признак окончания передачи по DMA
+	tx_on = false;
 }
 
 /*
@@ -152,7 +157,8 @@ StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes)
 */
 void BLEUartTx(uint32_t len, uint8_t *data)
 {
-  while (LL_DMA_IsActiveFlag_TC3(DMA1)) taskYIELD();	// Ожидаем пока не завершится предыдущая передача
+  tx_on = true;
+  while (!LL_USART_IsActiveFlag_TC(USART3)) taskYIELD();
 
   LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_3, (uint32_t)data);	// Устанавливаем указатель DMA на передаваемый массив
   LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_3, len);					// указываем передаваемое кол-во байт
@@ -163,6 +169,7 @@ void BLEUartTx(uint32_t len, uint8_t *data)
   // Включаем передающий поток DMA
   LL_DMA_EnableStream(DMA1, LL_DMA_STREAM_3);
   
+  while (tx_on) taskYIELD();	// Ожидаем пока не завершится передача. 
 }
 /*
 	Функция приёма данных из UART BLE

@@ -101,7 +101,12 @@ int _read(int file, char *ptr, int len)
 	int retval;
 	switch (file) {
 		case 3:
-			retval = GSMUartRx(len, ptr);
+			for (retval = 0; retval < len;) {
+				retval += GSMUartRx(1, &ptr[retval]);
+				if (retval > 0) if (ptr[retval-1] == '\n') break;
+			}
+
+//			retval = GSMUartRx(len, ptr);
 			break;
 //		default:
 //			return len;
@@ -165,4 +170,14 @@ __attribute__((weak))
 void _init(void)
 {
 	return;
+}
+
+int fgetc(FILE *fd)
+{
+	int c = 0;
+	switch (fd->_file) {
+		case 3:
+			GSMUartRx(1, &c);
+	}
+	return c;
 }

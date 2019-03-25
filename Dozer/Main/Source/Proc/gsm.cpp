@@ -25,16 +25,16 @@ static const char cmd_auth[] = "/auth/login";
 static const char cmd_get_dispancer[] = "/tank/dispanser";
 static const char cmd_set_dispancer[] = "/tank/update-dispenser";
 
-static const char at_cmd_ate_off[] = "ATE0\r";
-static const char at_cmd_ate_on[] = "ATE1\r";
+static const char at_cmd_ate_off[] = "ATE0\r\n";
+static const char at_cmd_ate_on[] = "ATE1\r\n";
 
-static const char at_cmd_https_state[] = "AT+CHTTPSSTATE\r";
+static const char at_cmd_https_state[] = "AT+CHTTPSSTATE\r\n";
 
-static const char at_cmd_https_start[] = "AT+CHTTPSSTART\r";
-static const char at_cmd_https_stop[] = "AT+CHTTPSSTOP\r";
+static const char at_cmd_https_start[] = "AT+CHTTPSSTART\r\n";
+static const char at_cmd_https_stop[] = "AT+CHTTPSSTOP\r\n";
 
 static const char at_cmd_https_open[] = "AT+CHTTPSOPSE=";
-static const char at_cmd_https_close[] = "AT+CHTTPSCLSE\r";
+static const char at_cmd_https_close[] = "AT+CHTTPSCLSE\r\n";
 
 static const char at_cmd_https_send[] = "AT+CHTTPSSEND=";
 static const char at_cmd_https_recv[] = "AT+CHTTPSRECV";
@@ -47,6 +47,25 @@ static char answer[256];
 
 static FILE *fd = NULL;
 
+int gsm_get_str(int len, char *ptr)
+{
+	int retval;
+	if (len < 2) return 0;
+	for (retval = 0; retval < len-1;) {
+		retval += GSMUartRx(1, &ptr[retval]);
+		if (retval > 0) if (ptr[retval-1] == '\n') { ptr[retval] = '\0'; break; }
+		ptr[retval] = '\0';
+	}
+	return retval;
+}
+
+char gsm_get_char(void)
+{
+	char c;
+	GSMUartRx(1, &c);
+	return c;
+}
+
 bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 {
 	va_list args;
@@ -56,12 +75,22 @@ bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 	vfprintf(fd, format, args);
 	va_end(args);
 
-	fgets(answer, sizeof(answer), fd);
-	printf("%s", answer);
+	do {
+		fgets(answer, sizeof(answer), fd);
+		printf("%s", answer);
+	} while (strcmp(answer, "ATE0\r\r\n") == 0 || strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0);
+//	printf("%02X %02X %02X %02X %02X %02X %02X %02X\r\n", answer[0], answer[1], answer[2], answer[3], answer[4], answer[5], answer[6], answer[7]);
+	if (strcmp(answer, answ_ok) == 0) return false;
 	if (strcmp(answer, "\r\n") != 0) return true;
 	if (callback) callback(param);
 	fgets(answer, sizeof(answer), fd);
 	printf("%s", answer);
+	while (strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0) {
+		fgets(answer, sizeof(answer), fd);
+		printf("%s", answer);
+		fgets(answer, sizeof(answer), fd);
+		printf("%s", answer);
+	}
 	return (strcmp(answer, answ_ok) != 0);
 }
 
@@ -79,10 +108,11 @@ void https_state_callback(void *state)
 }
 */
 
+
 void send_header(void *hdr)
 {
 	char c = (char)fgetc(fd);
-	if (c != '>') return;
+	if (c != '>') { printf("%c", c); return; }
 	fputs((char*)hdr, fd);
 	printf("%s", (char*)hdr);
 	fgets(answer, sizeof(answer), fd);
@@ -106,11 +136,11 @@ void gsm_init(void)
 	for (int i = 0; i < 3;) {
 		fgets(answer, sizeof(answer), fd);
 		printf("%s", answer);
+		if (strcmp(answer, "PB DONE\r\n") == 0) break;
 		if (strcmp(answer, "+STIN: 25\r\n") == 0) i++;
 	}
 
-	while(at_cmd(NULL, NULL, "%s\n", at_cmd_ate_off));
-	
+	while(at_cmd(NULL, NULL, "%s", at_cmd_ate_off));
 }
 
 char *read_token(void)
@@ -160,7 +190,7 @@ void https_start(void *Param)
 	
 
 	gsm_init();
-	at_cmd(NULL, NULL, "%s\n", at_cmd_https_start);
+	at_cmd(NULL, NULL, "%s", at_cmd_https_start);
 	at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, host, port);
 
 	if (token == NULL) {
@@ -177,7 +207,7 @@ void https_start(void *Param)
 		header = http_header(cmd_auth, request);
 		free(request);
 		
-		if (at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header))) printf("error:not ok\r\n");
+		if (at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header))) {printf("error:not ok\r\n"); goto finish;}
 		free(header);
 		
 		at_wait("+CHTTPS: RECV EVENT\r\n");
@@ -187,9 +217,9 @@ void https_start(void *Param)
 	}
 //	at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
 //	printf("status is: %d\n", status);
-
-	at_cmd(NULL, NULL, "%s\n", at_cmd_https_close);
-	at_cmd(NULL, NULL, "%s\n", at_cmd_https_stop);
+finish:
+	at_cmd(NULL, NULL, "%s", at_cmd_https_close);
+	at_cmd(NULL, NULL, "%s", at_cmd_https_stop);
 
 	do {
 		fgets(answer, sizeof(answer), fd);

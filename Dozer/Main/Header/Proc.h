@@ -88,5 +88,4 @@ void GSMUartClean(void);
 
 /*-----------------------------GSM----------------------------------*/
 #define EEPROM_TOKEN	0x0008
-void gsm_init(void);
 void https_start(void *Param);

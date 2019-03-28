@@ -5,7 +5,6 @@
 #include "Global.h"
 #include <stdarg.h>
 
-//typedef at_callback 
 enum https_state_enum {
 	HTTPS_STATE_NONE,
 	HTTPS_STATE_ACCQUIRED_HTTPS,
@@ -42,53 +41,31 @@ static const char at_cmd_https_recv[] = "AT+CHTTPSRECV";
 static const char answ_ok[] = "OK\r\n";
 static const char answ_error[] = "ERROR\r\n";
 
-//static char token[512];
 static char answer[256];
 
 static FILE *fd = NULL;
-
-int gsm_get_str(int len, char *ptr)
-{
-	int retval;
-	if (len < 2) return 0;
-	for (retval = 0; retval < len-1;) {
-		retval += GSMUartRx(1, &ptr[retval]);
-		if (retval > 0) if (ptr[retval-1] == '\n') { ptr[retval] = '\0'; break; }
-		ptr[retval] = '\0';
-	}
-	return retval;
-}
-
-char gsm_get_char(void)
-{
-	char c;
-	GSMUartRx(1, &c);
-	return c;
-}
 
 bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 	
-	vprintf(format, args);
 	vfprintf(fd, format, args);
 	va_end(args);
 
 	do {
 		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
-	} while (strcmp(answer, "ATE0\r\r\n") == 0 || strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0);
+	} while (strcmp(answer, "ATE0\r\r\n") == 0
+	|| strcmp(answer, "+STIN: 25\r\n") == 0
+	|| strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0);
+	
 	if (strcmp(answer, answ_ok) == 0) return false;
 	if (strcmp(answer, "\r\n") != 0) return true;
 	if (callback) callback(param);
 	fgets(answer, sizeof(answer), fd);
-	printf("%s", answer);
 	while (strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0) {
 		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
 		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
 	}
 	return (strcmp(answer, answ_ok) != 0);
 }
@@ -97,27 +74,22 @@ bool at_wait(const char *str, const char *str2)
 {
 	do {
 		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
 		if (strcmp(answer, str2) == 0) return true;
 	} while (strcmp(answer, str) != 0);
 	return false;
 }
-/*
+
 void https_state_callback(void *state)
 {
 	fscanf(fd, "+CHTTPSSTATE:%d\r\n", (int*)state);
 }
-*/
-
 
 void send_header(void *hdr)
 {
 	char c = (char)fgetc(fd);
-	if (c != '>') { printf("%c", c); return; }
+	if (c != '>') return;
 	fputs((char*)hdr, fd);
-	printf("%s", (char*)hdr);
 	fgets(answer, sizeof(answer), fd);
-	printf("%s", answer);
 }
 
 void recv_https(void *len)
@@ -125,23 +97,21 @@ void recv_https(void *len)
 	fscanf(fd, "+CHTTPSRECV: LEN,%d\r\n", (int*)len);
 }
 
-void gsm_init(void)
+bool gsm_init(void)
 {
+	printf("initialize gsm...");
 	fd = fopen("GSM", "r+");
-	if (fd == NULL) vTaskDelete(NULL);
+	if (fd == NULL) return true;
 	
 	GSM_RST_ON;
 	vTaskDelay(MS_TO_TICK(100));
 	GSM_RST_OFF;
 	
-	for (int i = 0; i < 3;) {
-		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
-		if (strcmp(answer, "PB DONE\r\n") == 0) break;
-		if (strcmp(answer, "+STIN: 25\r\n") == 0) i++;
-	}
-
-	while(at_cmd(NULL, NULL, "%s", at_cmd_ate_off));
+	do { fgets(answer, sizeof(answer), fd);	} while (strcmp(answer, "PB DONE\r\n") != 0);
+	
+	printf("done\r\n");
+	
+	return at_cmd(NULL, NULL, "%s", at_cmd_ate_off);
 }
 
 char *read_token(void)
@@ -167,7 +137,7 @@ char *read_passwd(void)
 	return retval;
 }
 
-char *http_header(const char *addr, const char *request)
+char *add_http_header(const char *addr, const char *request)
 {
 	char req_len[25];
 	char *post = (char*)malloc(17 + strlen(https_host) + strlen(addr));
@@ -185,104 +155,88 @@ char *http_header(const char *addr, const char *request)
 	return retval;
 }
 
-char *aqual_request(const char *addr, const char *request)
+char *https_request(const char *addr, const char *request)
 {
-		int recv = 0;
-		char *header = http_header(addr, request);
+	int recv = 0;
+	char *data = add_http_header(addr, request);
 
-		at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header));
-		free(header);
-		
-		if (at_wait("+CHTTPS: RECV EVENT\r\n", "+CHTTPSNOTIFY: PEER CLOSED\r\n")) return NULL;
+	printf("sending request...");
+	if (at_cmd(send_header, data, "%s%d\r\n", at_cmd_https_send, strlen(data))) {free(data); return NULL;}
+	free(data);
+	printf("done\r\nwaiting response...");
+	if (at_wait("+CHTTPS: RECV EVENT\r\n", "+CHTTPSNOTIFY: PEER CLOSED\r\n")) {
+		printf("peer closed\r\n");
+		return NULL;
+	}
 
-		do {
-			if (at_cmd(recv_https, &recv, "%s?\r\n", at_cmd_https_recv)) return NULL;
-			printf("received %d bytes\r\n", recv);
-		} while (recv < 17);
-		header = NULL;
-		header = (char*)malloc(recv+3);
-		if (header != NULL) {
-			int len;
-			for (int i = 0; i < recv; i += len) {
-				if (i > 160) break;
-				vTaskDelay(MS_TO_TICK(1000));
-				if (at_cmd(NULL, NULL, "%s=32\r\n", at_cmd_https_recv)) {
-					free(header);
-					return NULL;
-				}
+	do {
+		if (at_cmd(recv_https, &recv, "%s?\r\n", at_cmd_https_recv)) return NULL;
+	} while (recv < 17);
+
+	printf("done\r\nwill be receive %d bytes\r\n", recv);
+
+	data = NULL;
+	data = (char*)malloc(recv+3);
+	if (data != NULL) {
+		int len;
+		printf("buffer allocated\r\n");
+		for (int i = 0; i < recv; i += len) {
+			if (at_cmd(NULL, NULL, "%s=32\r\n", at_cmd_https_recv)) {
+				free(data);
+				return NULL;
+			}
 				
 				len = 0;
 				do {
-					fscanf(fd, "\r\n+CHTTPSRECV: DATA,%d\r\n", &len);
+					fgets(answer, sizeof(answer), fd);
+					fgets(answer, sizeof(answer), fd);
+					sscanf(answer, "+CHTTPSRECV: DATA,%d\r\n", &len);
 				} while (len == 0);
 				
-				printf("len= %d i= %d\r\n", len, i);
-/*	
-				for (int n = 0; n < len+2; n++) {
-					header[i + n] = fgetc(fd);
-				}
-				header[i + len+2] = '\0';
-				printf("%s", &header[i]);
-*/
-				fread(&header[i], len, 1, fd);
-				header[i+len] = '\0';
-				printf("%s\r\n", &header[i]);
-				fgets(answer, sizeof(answer), fd);
-				printf("%s", answer);
+				fread(&data[i], len+2, 1, fd);
+				data[i+len+2] = '\0';
 
 				fgets(answer, sizeof(answer), fd);
-				printf("%s", answer);
-				if (at_wait("+CHTTPS: RECV EVENT\r\n", "+CHTTPSNOTIFY: PEER CLOSED\r\n")) return NULL;
 			}
 		}
-		return header;
+		printf("data received\r\n");
+		return data;
 }
 
 void https_start(void *Param)
 {
+	https_state_enum status;
 	char *token = read_token();
-	
 
 	gsm_init();
+	printf("opening network...");
 	at_cmd(NULL, NULL, "%s", at_cmd_https_start);
 	at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, host, port);
+	printf("done\r\n");
 
 	if (token == NULL) {
-		char *header;
+		char *httpjson;
 		char *inn = read_inn();
 		char *passwd = read_passwd();
-//		int recv = 0;
 		
 		char *request = (char*)malloc(strlen(inn) + strlen(passwd) + 26);
 		
 		sprintf(request, "{ INN:\"%s\", Password:\"%s\" }\r\n", inn, passwd);
 		free(inn); free(passwd);
 
-		header = aqual_request(cmd_auth, request);
-		if (header) {
-			printf("%s\r\n", header);
-			free(header);
-		}
-/*		header = http_header(cmd_auth, request);
-		free(request);
-		
-		if (at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header))) {printf("error:not ok\r\n"); goto finish;}
-		free(header);
-		
-		at_wait("+CHTTPS: RECV EVENT\r\n");
-		
-		at_cmd(recv_https, &recv, "%s?\r\n", at_cmd_https_recv);
-		printf("received %d bytes\r\n", recv);
-*/
+		httpjson = https_request(cmd_auth, request);
+		if (httpjson) {
+			printf("%s", httpjson);
+			free(httpjson);
+		} else printf("error!\r\n");
 	}
-//	at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
-//	printf("status is: %d\n", status);
 
-	at_cmd(NULL, NULL, "%s", at_cmd_https_close);
+	at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
+
+	printf("close network...");
+	if (status == HTTPS_STATE_OPENED_SESSION) at_cmd(NULL, NULL, "%s", at_cmd_https_close);
 	at_cmd(NULL, NULL, "%s", at_cmd_https_stop);
-
-	do {
-		fgets(answer, sizeof(answer), fd);
-		printf("%s", answer);
-	} while (true);
+	printf("done\r\n");
+	
+	vTaskDelete(NULL);
 }

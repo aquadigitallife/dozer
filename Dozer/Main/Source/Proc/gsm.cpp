@@ -79,7 +79,6 @@ bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 		fgets(answer, sizeof(answer), fd);
 		printf("%s", answer);
 	} while (strcmp(answer, "ATE0\r\r\n") == 0 || strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0);
-//	printf("%02X %02X %02X %02X %02X %02X %02X %02X\r\n", answer[0], answer[1], answer[2], answer[3], answer[4], answer[5], answer[6], answer[7]);
 	if (strcmp(answer, answ_ok) == 0) return false;
 	if (strcmp(answer, "\r\n") != 0) return true;
 	if (callback) callback(param);
@@ -94,12 +93,14 @@ bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 	return (strcmp(answer, answ_ok) != 0);
 }
 
-void at_wait(const char *str)
+bool at_wait(const char *str, const char *str2)
 {
 	do {
 		fgets(answer, sizeof(answer), fd);
 		printf("%s", answer);
+		if (strcmp(answer, str2) == 0) return true;
 	} while (strcmp(answer, str) != 0);
+	return false;
 }
 /*
 void https_state_callback(void *state)
@@ -166,7 +167,7 @@ char *read_passwd(void)
 	return retval;
 }
 
-char *http_header(const char *addr, char *request)
+char *http_header(const char *addr, const char *request)
 {
 	char req_len[25];
 	char *post = (char*)malloc(17 + strlen(https_host) + strlen(addr));
@@ -184,6 +185,59 @@ char *http_header(const char *addr, char *request)
 	return retval;
 }
 
+char *aqual_request(const char *addr, const char *request)
+{
+		int recv = 0;
+		char *header = http_header(addr, request);
+
+		at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header));
+		free(header);
+		
+		if (at_wait("+CHTTPS: RECV EVENT\r\n", "+CHTTPSNOTIFY: PEER CLOSED\r\n")) return NULL;
+
+		do {
+			if (at_cmd(recv_https, &recv, "%s?\r\n", at_cmd_https_recv)) return NULL;
+			printf("received %d bytes\r\n", recv);
+		} while (recv < 17);
+		header = NULL;
+		header = (char*)malloc(recv+3);
+		if (header != NULL) {
+			int len;
+			for (int i = 0; i < recv; i += len) {
+				if (i > 160) break;
+				vTaskDelay(MS_TO_TICK(1000));
+				if (at_cmd(NULL, NULL, "%s=32\r\n", at_cmd_https_recv)) {
+					free(header);
+					return NULL;
+				}
+				
+				len = 0;
+				do {
+					fscanf(fd, "\r\n+CHTTPSRECV: DATA,%d\r\n", &len);
+				} while (len == 0);
+				
+				printf("len= %d i= %d\r\n", len, i);
+/*	
+				for (int n = 0; n < len+2; n++) {
+					header[i + n] = fgetc(fd);
+				}
+				header[i + len+2] = '\0';
+				printf("%s", &header[i]);
+*/
+				fread(&header[i], len, 1, fd);
+				header[i+len] = '\0';
+				printf("%s\r\n", &header[i]);
+				fgets(answer, sizeof(answer), fd);
+				printf("%s", answer);
+
+				fgets(answer, sizeof(answer), fd);
+				printf("%s", answer);
+				if (at_wait("+CHTTPS: RECV EVENT\r\n", "+CHTTPSNOTIFY: PEER CLOSED\r\n")) return NULL;
+			}
+		}
+		return header;
+}
+
 void https_start(void *Param)
 {
 	char *token = read_token();
@@ -197,14 +251,19 @@ void https_start(void *Param)
 		char *header;
 		char *inn = read_inn();
 		char *passwd = read_passwd();
-		int recv = 0;
+//		int recv = 0;
 		
 		char *request = (char*)malloc(strlen(inn) + strlen(passwd) + 26);
 		
 		sprintf(request, "{ INN:\"%s\", Password:\"%s\" }\r\n", inn, passwd);
 		free(inn); free(passwd);
-		
-		header = http_header(cmd_auth, request);
+
+		header = aqual_request(cmd_auth, request);
+		if (header) {
+			printf("%s\r\n", header);
+			free(header);
+		}
+/*		header = http_header(cmd_auth, request);
 		free(request);
 		
 		if (at_cmd(send_header, header, "%s%d\r\n", at_cmd_https_send, strlen(header))) {printf("error:not ok\r\n"); goto finish;}
@@ -214,10 +273,11 @@ void https_start(void *Param)
 		
 		at_cmd(recv_https, &recv, "%s?\r\n", at_cmd_https_recv);
 		printf("received %d bytes\r\n", recv);
+*/
 	}
 //	at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
 //	printf("status is: %d\n", status);
-finish:
+
 	at_cmd(NULL, NULL, "%s", at_cmd_https_close);
 	at_cmd(NULL, NULL, "%s", at_cmd_https_stop);
 

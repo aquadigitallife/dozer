@@ -133,8 +133,11 @@ void USART6_IRQHandler(void)
 	received_char = LL_USART_ReceiveData8(USART6);
 
 	/* Записываем принятый байт в стримбуфер. */
-	if (GSMStreamBuffer)
-		xStreamBufferSendFromISR( GSMStreamBuffer, (const uint8_t*)&received_char, 1, NULL );
+	if (GSMStreamBuffer) {
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		if (0 == xStreamBufferSendFromISR( GSMStreamBuffer, (const uint8_t*)&received_char, 1, &xHigherPriorityTaskWoken )) LED_ERR_ON; 
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}
   }
 }
 

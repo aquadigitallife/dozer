@@ -16,8 +16,8 @@ enum https_state_enum {
 	HTTPS_STATE_OPENED_SESSION
 };
 
-#define ON_ERROR(x) do { \
-printf("##x"); \
+#define ON_ERROR(...) do { \
+printf(__VA_ARGS__); \
 goto network_close; \
 } while(0)
 
@@ -127,8 +127,9 @@ char *read_token(void)
 char *read_inn(void)
 {
 	char *retval;
-	char pinn[] = "11111111111";
+	static const char pinn[] = "11111111111";
 	retval = (char*)malloc(sizeof(pinn));
+	if (retval == NULL) return (char*)pinn;
 	memcpy(retval, pinn, sizeof(pinn));
 	return retval;
 }
@@ -136,35 +137,47 @@ char *read_inn(void)
 char *read_passwd(void)
 {
 	char *retval;
-	char ppass[] = "demo";
+	static const char ppass[] = "demo";
 	retval = (char*)malloc(sizeof(ppass));
+	if (retval == NULL) return (char*)ppass;
 	memcpy(retval, ppass, sizeof(ppass));
 	return retval;
 }
 
-char *add_http_header(const char *addr, const char *request)
+char *add_http_header(const char *addr, const char *request, const char *token)
 {
+	int hdr_len;
 	char req_len[25];
+	char *retval;
+
 	char *post = (char*)malloc(17 + strlen(https) + strlen(https_host) + strlen(addr));
 	char *host = (char*)malloc(9 + strlen(https) + strlen(https_host) + strlen(addr));
-	char *retval;
+	if (post == NULL || host == NULL) return NULL;
 	
 	sprintf(post, "POST %s%s%s HTTP/1.1\r\n", https, https_host, addr);
 	sprintf(host, "HOST: %s%s%s\r\n", https, https_host, addr);
 	sprintf(req_len, "Content-Length: %d\r\n", strlen(request) - 2);
 	
-	retval = (char*)malloc(strlen(post) + strlen(host) + strlen(req_len) + strlen(request) + 3);
-	sprintf(retval, "%s%s%s\r\n%s", post, host, req_len, request);
+	hdr_len = strlen(post) + strlen(host) + strlen(req_len) + strlen(request) + 3;
+	if (token != NULL) hdr_len += strlen(token);
+	
+	retval = (char*)malloc(hdr_len);
+	if (retval == NULL) return NULL;
+	
+	if (token == NULL) sprintf(retval, "%s%s%s\r\n%s", post, host, req_len, request);
+	else sprintf(retval, "%s%s%s%s\r\n%s", post, host, token, req_len, request);
 	free(post); free(host);
 
 	return retval;
 }
 
-char *https_request(const char *addr, const char *request)
+char *https_request(const char *addr, const char *request, const char *token)
 {
 	int recv = 0;
-	char *data = add_http_header(addr, request);
+	char *data = add_http_header(addr, request, token);
 
+	if (data == NULL) return NULL;
+	
 	printf("sending request...");
 	if (at_cmd(send_header, data, "%s%d\r\n", at_cmd_https_send, strlen(data))) {free(data); return NULL;}
 	free(data);
@@ -196,7 +209,7 @@ char *https_request(const char *addr, const char *request)
 				fgets(answer, sizeof(answer), fd);
 				sscanf(answer, "+CHTTPSRECV: DATA,%d\r\n", &len);
 			} while (len == 0);
-
+//			printf("read %d bytes\r\n", len);
 			fread(&data[i], len+2, 1, fd);
 			data[i+len+2] = '\0';
 
@@ -219,14 +232,14 @@ char *get_token(void)
 	sprintf(request, "{ INN:\"%s\", Password:\"%s\" }\r\n", inn, passwd);
 	free(inn); free(passwd);
 
-	httpjson = https_request(cmd_auth, request);
+	httpjson = https_request(cmd_auth, request, NULL);
 	free(request);
 	if (httpjson == NULL) return NULL;
 	request = strstr(httpjson, "_Autorize") + strlen("_Autorize\":\"");
 	*strchr(request, '\"') = '\0';
-	retptr = (char*)malloc(strlen(request)+1);
+	retptr = (char*)malloc(strlen(request)+15);
 	if (retptr == NULL) return NULL;
-	strcpy(retptr, request);
+	sprintf(retptr, "_Authorize: %s\r\n", request);
 	free(httpjson);
 	return retptr;
 }
@@ -234,19 +247,67 @@ char *get_token(void)
 void https_start(void *Param)
 {
 	https_state_enum status;
-	char *token = read_token();
+	static const char *tankId[28] = {
+		 "595"
+		,"610"
+		,"611"
+		,"612"
+		,"613"
+		,"614"
+		,"615"
+		,"616"
+		,"619"
+		,"620"
+		,"622"
+		,"624"
+		,"627"
+		,"628"
+		,"629"
+		,"631"
+		,"632"
+		,"633"
+		,"742"
+		,"743"
+		,"745"
+		,"772"
+		,"773"
+		,"913"
+		,"1994"
+		,"1995"
+		,"1996"
+		,"2004"
+	};
+	char *token, *request, *response;
+	int hcode;
 
 	gsm_init();
 	printf("opening network...");
-	if (at_cmd(NULL, NULL, "%s", at_cmd_https_start)) ON_ERROR(error!);
-	if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR(error!);
+	if (at_cmd(NULL, NULL, "%s", at_cmd_https_start)) ON_ERROR("error!\r\n");
+	if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");
 	printf("done\r\n");
 
+	token = read_token();
 	if (token == NULL) {
 		token = get_token();
-		if (token == NULL) ON_ERROR(no_memory!);
+		if (token == NULL) ON_ERROR("no_memory!\r\n");
 	}
-	printf("%s\r\n", token);
+	
+	for (int i = 0; i < 28; i++) {
+	request = (char*)malloc(13 + strlen(tankId[i]));
+	if (request == NULL) ON_ERROR("no_memory!\r\n");
+	sprintf(request, "{ nTankId: %s }\r\n", tankId[i]);
+	response = https_request(cmd_get_dispancer, request, token);
+	free(request);
+	if (response == NULL) ON_ERROR("error!\r\n");
+	
+	sscanf(response, "HTTP/1.1 %d OK", &hcode);
+	if (hcode != 200) {
+		free(response);
+		ON_ERROR("http ret: %d\r\n", hcode);
+	}
+	printf("%s", strstr(response, "{"));
+	free(response);
+	}
 
 network_close:
 	printf("close network...");

@@ -2,13 +2,12 @@ TOPDIR = ../../..
 
 SUBDIRS =
 
-CSRCS =
+CSRCS = cJSON.c
 
-CXXSRCS = CRC.cpp
+CXXSRCS =
 
 INCDIRS = . \
 .. \
-../cJSON \
 $(TOPDIR)/Dozer/Main/Header \
 $(TOPDIR)/Dozer/Main/Header/Global \
 $(TOPDIR)/Dozer/Main/Header/System \

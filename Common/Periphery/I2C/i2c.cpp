@@ -9,7 +9,7 @@
 #define I2C_DUTYCYCLE		LL_I2C_DUTYCYCLE_2
 /* Признаки завершения передачи по DMA*/
 #define I2C_COMPLETE		0x00000001UL	// передача завершена без ошибок
-#define I2C_ERROR			0x00000002UL	// с щибками
+#define I2C_ERROR			0x00000002UL	// с ошибками
 
 /**
   * @brief Константы направления передачи (запись/чтение)
@@ -130,7 +130,8 @@ void DMA1_Stream4_IRQHandler(void)
   if(LL_DMA_IsActiveFlag_TC4(DMA1))												// транзакция DMA завершена
   {
     LL_DMA_ClearFlag_TC4(DMA1);													// сбрасываем признак завершения
-
+	LL_I2C_DisableDMAReq_TX(I2C3);
+	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_4);
 	if (ubDirection == I2C_REQUEST_READ) {										// если запрошено чтение информации
 		LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_2, (uint32_t)pdata);		// настраиваем "читающий" поток DMA
 		LL_DMA_SetDataLength(DMA1, LL_DMA_STREAM_2, ubMasterNbDataToReceive);
@@ -156,6 +157,8 @@ void DMA1_Stream2_IRQHandler(void)
   if(LL_DMA_IsActiveFlag_TC2(DMA1))							// транзакция DMA завершена
   {
     LL_DMA_ClearFlag_TC2(DMA1);								// сбрасываем признак завершения
+	LL_I2C_DisableDMAReq_RX(I2C3);
+	LL_DMA_DisableStream(DMA1, LL_DMA_STREAM_2);
 	LL_I2C_GenerateStopCondition(I2C3);						// выставляем стоп-условие
 	if (xHandlingTask != NULL) {							// если к I2C привязана задача
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -340,7 +343,14 @@ BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data)
 	LL_I2C_GenerateStartCondition(I2C3);
   
 	// Ожидаем окончания передачи/приёма
-	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, 100 );
+	xTaskNotifyWait( pdFALSE, 0xffffffffUL, &ulNotifiedValue, portMAX_DELAY );
+	
+	if (ulNotifiedValue == I2C_ERROR) {
+		xHandlingTask = NULL;
+		xSemaphoreGive( i2c_lock );
+		return pdFAIL;
+	}
+	xHandlingTask = NULL;
 	// Освобождаем мьютекс
 	xSemaphoreGive( i2c_lock );
 	

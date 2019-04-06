@@ -22,6 +22,7 @@ INCDIRS = \
 ../../Header/BLE \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
+$(TOPDIR)/Common/Lib/cJSON \
 $(TOPDIR)/Common/CMSIS \
 $(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Periphery/EFlash \

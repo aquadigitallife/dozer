@@ -16,6 +16,7 @@ $(TOPDIR)/Common/CMSIS \
 $(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
+$(TOPDIR)/Common/Lib/cJSON \
 $(TOPDIR)/Common/Periphery/EFlash \
 $(TOPDIR)/Common/Periphery/Motors \
 $(TOPDIR)/Common/Device/Flash \

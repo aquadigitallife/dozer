@@ -5,6 +5,7 @@ SUBDIRS += Common/STM32F4xx_HAL_Driver/Src
 SUBDIRS += Common/FreeRTOS/V10.1.1
 SUBDIRS += Common/Lib/Tools
 SUBDIRS += Common/Lib/CRC
+SUBDIRS += Common/Lib/cJSON
 SUBDIRS += Common/Periphery/EFlash
 SUBDIRS += Common/Periphery/Motors
 SUBDIRS += Common/Periphery/UART

@@ -14,6 +14,7 @@ $(TOPDIR)/Dozer/Main/Header/Global \
 $(TOPDIR)/Dozer/Main/Header/System \
 ../../Lib \
 ../../Lib/CRC \
+../../Lib/cJSON \
 ../../CMSIS \
 ../../STM32F4xx_HAL_Driver/Inc \
 ../EFlash \

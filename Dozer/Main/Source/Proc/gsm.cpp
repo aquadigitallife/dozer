@@ -46,6 +46,8 @@ static const char at_cmd_https_recv[] = "AT+CHTTPSRECV";
 static const char answ_ok[] = "OK\r\n";
 static const char answ_error[] = "ERROR\r\n";
 
+static const char ctoken[] = "A_uthorize: ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKSVV6STFOaUo5LmV5SkpaQ0k2SWpSaU9USmhZbVJtTFdRME9UUXROR1U1TmkwNVpqZzVMV000WVRNeE1EVmhNemt4WkNJc0lsVnpaWEpPWVcxbElqb2lZWHBoZEd0aU1qSkFaMjFoYVd3dVkyOXRJaXdpVUdodmJtVWlPaUlyT1RrMk56QTNPVGszTmpReElpd2lSVzFoYVd3aU9pSmhlbUYwYTJJeU1rQm5iV0ZwYkM1amIyMGlMQ0pTYjJ4bElqb2lRV1J0YVc0aUxDSkdkV3hzVG1GdFpTSTZJa3RpSUVGNllYUWlMQ0p1Um1GeWJVbGtJam94TENKdVJtbHphRWxrSWpveE9Td2lWR2x0WlNJNk1UVTFORFUxTVRZMk9YMC5vSnhtYm9EOWs4cXhLcEhFQUhlRWpuQ1BWSTNVaTFQbnVyS3NLUjBKRFpR";
+
 static char answer[256];
 
 static FILE *fd = NULL;
@@ -121,6 +123,14 @@ bool gsm_init(void)
 
 char *read_token(void)
 {
+/*	char *retptr;
+	uint16_t taddr;
+	if (pdFAIL == ee_read(TOKENADDR_ADDR, sizeof(taddr), &taddr)) return NULL;
+	retptr = (char*)malloc(EEPROM_SIZE - taddr + 1);
+	if (retptr == NULL) return NULL;
+	if (pdFAIL == ee_read(taddr, EEPROM_SIZE - taddr, retptr)) return NULL;
+	retptr[EEPROM_SIZE - taddr] = 0;
+*/
 	return NULL;
 }
 
@@ -277,8 +287,11 @@ void https_start(void *Param)
 		,"1996"
 		,"2004"
 	};
-	char *token, *request, *response;
+	char *token;
+	char *request, *response;
 	int hcode;
+	cJSON *json;
+	const cJSON *dispancer = NULL;
 
 	gsm_init();
 	printf("opening network...");
@@ -291,8 +304,10 @@ void https_start(void *Param)
 		token = get_token();
 		if (token == NULL) ON_ERROR("no_memory!\r\n");
 	}
-	
+
 	for (int i = 0; i < 28; i++) {
+/*---------------------get dispancer--------------------------------------*/	
+	printf("\r\n\r\n");
 	request = (char*)malloc(13 + strlen(tankId[i]));
 	if (request == NULL) ON_ERROR("no_memory!\r\n");
 	sprintf(request, "{ nTankId: %s }\r\n", tankId[i]);
@@ -305,8 +320,72 @@ void https_start(void *Param)
 		free(response);
 		ON_ERROR("http ret: %d\r\n", hcode);
 	}
-	printf("%s", strstr(response, "{"));
+	printf("\r\n");
+//	printf("%s", strstr(response, "{"));
+	json = cJSON_Parse(strstr(response, "{"));
 	free(response);
+/*------------------------------------------------------------------------*/	
+	if (json == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL)
+        {
+            printf("Error before: %s\n", error_ptr);
+        }
+	}
+	dispancer = cJSON_GetObjectItemCaseSensitive(json, "dispanser");
+	if (dispancer != NULL) {
+		const cJSON *item = dispancer->child;
+		for (int i = 0; item != NULL; i++) {
+			printf("%s ", item->string);
+			switch (item->type) {
+				case cJSON_False:
+					printf("false\r\n");
+					break;
+				case cJSON_True:
+					printf("true\r\n");
+					break;
+				case cJSON_Number:
+					printf("%.3f\r\n", item->valuedouble);
+					break;
+				case cJSON_String:
+					printf("%s\r\n", item->valuestring);
+					break;
+				case cJSON_Array:
+				{
+					const cJSON *sitem;
+					printf("array:\r\n");
+					cJSON_ArrayForEach(sitem, item)
+					{
+						for (const cJSON *ch = sitem->child; ch != NULL; ch = ch->next) {
+							printf("    %s ", ch->string);
+							switch (ch->type) {
+								case cJSON_False:
+									printf("false");
+									break;
+								case cJSON_True:
+									printf("true");
+									break;
+								case cJSON_Number:
+									printf("%.3f", ch->valuedouble);
+									break;
+								case cJSON_String:
+									printf("%s", ch->valuestring);
+									break;
+								default:
+									printf("???");
+							}
+						}
+						printf("\r\n");
+					}
+					break;
+				}
+				default:
+					printf("???\r\n");
+			}
+			item = item->next;
+		}
+	} else printf("dispancer is null\r\n");
+	cJSON_Delete(json);
 	}
 
 network_close:

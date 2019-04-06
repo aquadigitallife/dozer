@@ -9,6 +9,7 @@ CXXSRCS = \
 
 INCDIRS = .. \
 ../CRC \
+../cJSON \
 $(TOPDIR)/Dozer/Main/Header \
 $(TOPDIR)/Dozer/Main/Header/Global \
 $(TOPDIR)/Dozer/Main/Header/System \

@@ -51,12 +51,15 @@ double get_doze(void);				// функция чтения заданной доз
 void set_doze(int32_t val);			// установка дозы через BLE
 
 /*-----------------------------EEPROM----------------------------*/
+#define MAX_EEPROM_ADDR	0x1FFF	// Максимальный адрес EEPROM
+#define EEPROM_SIZE	0x2000
 #define TENSO_OFFSET_ADDR	0x0000	// адрес хранения начального смещения АЦП
+#define TOKENADDR_ADDR		0x0008
 
 BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);		// функция записи в EEPROM
-portINLINE void ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
+portINLINE BaseType_t ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
 {
-	i2c<uint16_t>(0xA1, addr, len, data);
+	return i2c<uint16_t>(0xA1, addr, len, data);
 }
 /*-----------------------------RTUUart------------------------------*/
 #ifdef __cplusplus

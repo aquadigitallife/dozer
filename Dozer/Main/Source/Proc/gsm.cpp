@@ -46,7 +46,7 @@ static const char at_cmd_https_recv[] = "AT+CHTTPSRECV";
 static const char answ_ok[] = "OK\r\n";
 static const char answ_error[] = "ERROR\r\n";
 
-static const char ctoken[] = "A_uthorize: ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKSVV6STFOaUo5LmV5SkpaQ0k2SWpSaU9USmhZbVJtTFdRME9UUXROR1U1TmkwNVpqZzVMV000WVRNeE1EVmhNemt4WkNJc0lsVnpaWEpPWVcxbElqb2lZWHBoZEd0aU1qSkFaMjFoYVd3dVkyOXRJaXdpVUdodmJtVWlPaUlyT1RrMk56QTNPVGszTmpReElpd2lSVzFoYVd3aU9pSmhlbUYwYTJJeU1rQm5iV0ZwYkM1amIyMGlMQ0pTYjJ4bElqb2lRV1J0YVc0aUxDSkdkV3hzVG1GdFpTSTZJa3RpSUVGNllYUWlMQ0p1Um1GeWJVbGtJam94TENKdVJtbHphRWxrSWpveE9Td2lWR2x0WlNJNk1UVTFORFUxTVRZMk9YMC5vSnhtYm9EOWs4cXhLcEhFQUhlRWpuQ1BWSTNVaTFQbnVyS3NLUjBKRFpR";
+//static const char ctoken[] = "A_uthorize: ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKSVV6STFOaUo5LmV5SkpaQ0k2SWpSaU9USmhZbVJtTFdRME9UUXROR1U1TmkwNVpqZzVMV000WVRNeE1EVmhNemt4WkNJc0lsVnpaWEpPWVcxbElqb2lZWHBoZEd0aU1qSkFaMjFoYVd3dVkyOXRJaXdpVUdodmJtVWlPaUlyT1RrMk56QTNPVGszTmpReElpd2lSVzFoYVd3aU9pSmhlbUYwYTJJeU1rQm5iV0ZwYkM1amIyMGlMQ0pTYjJ4bElqb2lRV1J0YVc0aUxDSkdkV3hzVG1GdFpTSTZJa3RpSUVGNllYUWlMQ0p1Um1GeWJVbGtJam94TENKdVJtbHphRWxrSWpveE9Td2lWR2x0WlNJNk1UVTFORFUxTVRZMk9YMC5vSnhtYm9EOWs4cXhLcEhFQUhlRWpuQ1BWSTNVaTFQbnVyS3NLUjBKRFpR";
 
 static char answer[256];
 
@@ -230,68 +230,100 @@ char *https_request(const char *addr, const char *request, const char *token)
 	return data;
 }
 
-char *get_token(void)
+BaseType_t get_tank_token(int nTankId, cJSON **tank, char **token)
 {
-	char *httpjson, *retptr;
+	char *request, *response;
+	cJSON *jtoken, *jitem;
 	char *inn = read_inn();
 	char *passwd = read_passwd();
-
-	char *request = (char*)malloc(strlen(inn) + strlen(passwd) + 26);
-
-	if (request == NULL) return NULL;
-	sprintf(request, "{ INN:\"%s\", Password:\"%s\" }\r\n", inn, passwd);
+	cJSON *json = cJSON_CreateObject();
+	
+	*tank = NULL; *token = NULL;
+	
+	if (json == NULL) return pdFAIL;
+	cJSON_AddItemReferenceToObject(json, "INN", cJSON_CreateStringReference(inn));
+	cJSON_AddItemReferenceToObject(json, "Password", cJSON_CreateStringReference(passwd));
+	request = cJSON_PrintUnformatted(json);
 	free(inn); free(passwd);
-
-	httpjson = https_request(cmd_auth, request, NULL);
+	cJSON_Delete(json);
+	if (request == NULL) return pdFAIL;
+	
+	response = https_request(cmd_auth, request, NULL);
 	free(request);
-	if (httpjson == NULL) return NULL;
-	request = strstr(httpjson, "_Autorize") + strlen("_Autorize\":\"");
-	*strchr(request, '\"') = '\0';
-	retptr = (char*)malloc(strlen(request)+15);
-	if (retptr == NULL) return NULL;
-	sprintf(retptr, "_Authorize: %s\r\n", request);
-	free(httpjson);
-	return retptr;
+	if (response == NULL) return pdFAIL;
+	
+	json = cJSON_Parse(strstr(response, "{"));
+	free(response);
+	if (json == NULL) return pdFAIL;
+	
+	jtoken = cJSON_GetObjectItemCaseSensitive(json, "_Autorize");
+	if (jtoken == NULL) goto error;
+	if (jtoken->valuestring == NULL) goto error;
+	if (strlen(jtoken->valuestring) == 0) goto error;
+	
+	*token = (char*)malloc(strlen(jtoken->valuestring) + 15);
+	sprintf(*token, "_Authorize: %s\r\n", jtoken->valuestring);
+	
+	jtoken = cJSON_GetObjectItemCaseSensitive(json, "Tanks");
+	if (jtoken == NULL) goto good;
+	
+	cJSON_ArrayForEach(jitem, jtoken)
+	{
+		cJSON *ch = cJSON_GetObjectItemCaseSensitive(jitem, "nTankId");
+		if (ch == NULL) continue; 
+		if (ch->valueint == nTankId) {
+			*tank = cJSON_Duplicate(jitem, 1);
+			break;
+		}
+	}
+good:
+	cJSON_Delete(json);
+	return pdPASS;
+error:
+	cJSON_Delete(json);
+	return pdFAIL;
 }
 
 void https_start(void *Param)
 {
 	https_state_enum status;
-	static const char *tankId[28] = {
-		 "595"
-		,"610"
-		,"611"
-		,"612"
-		,"613"
-		,"614"
-		,"615"
-		,"616"
-		,"619"
-		,"620"
-		,"622"
-		,"624"
-		,"627"
-		,"628"
-		,"629"
-		,"631"
-		,"632"
-		,"633"
-		,"742"
-		,"743"
-		,"745"
-		,"772"
-		,"773"
-		,"913"
-		,"1994"
-		,"1995"
-		,"1996"
-		,"2004"
+/*
+	static const int tankId[28] = {
+		 595
+		,610
+		,611
+		,612
+		,613
+		,614
+		,615
+		,616
+		,619
+		,620
+		,622
+		,624
+		,627
+		,628
+		,629
+		,631
+		,632
+		,633
+		,742
+		,743
+		,745
+		,772
+		,773
+		,913
+		,1994
+		,1995
+		,1996
+		,2004
 	};
+*/
 	char *token;
 	char *request, *response;
 	int hcode;
-	cJSON *json;
-	const cJSON *dispancer = NULL;
+	cJSON *json, *tank;
+	cJSON *jobj = NULL;
 
 	gsm_init();
 	printf("opening network...");
@@ -299,18 +331,41 @@ void https_start(void *Param)
 	if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");
 	printf("done\r\n");
 
-	token = read_token();
-	if (token == NULL) {
-		token = get_token();
-		if (token == NULL) ON_ERROR("no_memory!\r\n");
-	}
+	if (pdFAIL == get_tank_token(610, &tank, &token)) ON_ERROR("error get_tank_token\r\n");
 
-	for (int i = 0; i < 28; i++) {
+	if (tank != NULL) {
+		for (const cJSON *item = tank->child; item != NULL; item = item->next) {
+			printf("%s ", item->string);
+			switch (item->type) {
+				case cJSON_False:
+					printf("false\r\n");
+					break;
+				case cJSON_True:
+					printf("true\r\n");
+					break;
+				case cJSON_Number:
+					printf("%.3f\r\n", item->valuedouble);
+					break;
+				case cJSON_String:
+					printf("%s\r\n", item->valuestring);
+					break;
+				default:
+					printf("???\r\n");
+			}
+		}
+		cJSON_Delete(tank);
+	} else printf("tank is null\r\n");
+//	for (int i = 0; i < 28; i++) {
 /*---------------------get dispancer--------------------------------------*/	
 	printf("\r\n\r\n");
-	request = (char*)malloc(13 + strlen(tankId[i]));
-	if (request == NULL) ON_ERROR("no_memory!\r\n");
-	sprintf(request, "{ nTankId: %s }\r\n", tankId[i]);
+
+	json = cJSON_CreateObject();
+	if (json == NULL) ON_ERROR("no memory!\r\n");
+	if (cJSON_AddNumberToObject(json, "nTankId", 610) == NULL) ON_ERROR("no memory!\r\n");
+	request = cJSON_PrintUnformatted(json);
+	cJSON_Delete(json);
+	if (request == NULL) ON_ERROR("no memory!\r\n");
+
 	response = https_request(cmd_get_dispancer, request, token);
 	free(request);
 	if (response == NULL) ON_ERROR("error!\r\n");
@@ -324,7 +379,7 @@ void https_start(void *Param)
 //	printf("%s", strstr(response, "{"));
 	json = cJSON_Parse(strstr(response, "{"));
 	free(response);
-/*------------------------------------------------------------------------*/	
+
 	if (json == NULL) {
         const char *error_ptr = cJSON_GetErrorPtr();
         if (error_ptr != NULL)
@@ -332,10 +387,11 @@ void https_start(void *Param)
             printf("Error before: %s\n", error_ptr);
         }
 	}
-	dispancer = cJSON_GetObjectItemCaseSensitive(json, "dispanser");
-	if (dispancer != NULL) {
-		const cJSON *item = dispancer->child;
-		for (int i = 0; item != NULL; i++) {
+	jobj = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(json, "dispanser"), 1);
+	cJSON_Delete(json);
+/*------------------------------------------------------------------------*/	
+	if (jobj != NULL) {
+		for (const cJSON *item = jobj->child; item != NULL; item = item->next) {
 			printf("%s ", item->string);
 			switch (item->type) {
 				case cJSON_False:
@@ -382,11 +438,10 @@ void https_start(void *Param)
 				default:
 					printf("???\r\n");
 			}
-			item = item->next;
 		}
 	} else printf("dispancer is null\r\n");
-	cJSON_Delete(json);
-	}
+	cJSON_Delete(jobj);
+//	}
 
 network_close:
 	printf("close network...");

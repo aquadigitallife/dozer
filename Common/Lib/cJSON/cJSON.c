@@ -1112,21 +1112,26 @@ static unsigned char *print(const cJSON * const item, cJSON_bool format, const i
     /* check if reallocate is available */
     if (hooks->reallocate != NULL)
     {
-        printed = (unsigned char*) hooks->reallocate(buffer->buffer, buffer->offset + 1);
+        printed = (unsigned char*) hooks->reallocate(buffer->buffer, buffer->offset + 3);
         if (printed == NULL) {
             goto fail;
         }
         buffer->buffer = NULL;
+        printed[buffer->offset] = '\r';
+		printed[buffer->offset + 1] = '\n';
+		printed[buffer->offset + 2] = '\0'; /* just to be sure */
     }
     else /* otherwise copy the JSON over to a new buffer */
     {
-        printed = (unsigned char*) hooks->allocate(buffer->offset + 1);
+        printed = (unsigned char*) hooks->allocate(buffer->offset + 3);
         if (printed == NULL)
         {
             goto fail;
         }
-        memcpy(printed, buffer->buffer, cjson_min(buffer->length, buffer->offset + 1));
-        printed[buffer->offset] = '\0'; /* just to be sure */
+        memcpy(printed, buffer->buffer, cjson_min(buffer->length, buffer->offset + 3));
+        printed[buffer->offset] = '\r';
+		printed[buffer->offset + 1] = '\n';
+		printed[buffer->offset + 2] = '\0'; /* just to be sure */
 
         /* free the buffer */
         hooks->deallocate(buffer->buffer);

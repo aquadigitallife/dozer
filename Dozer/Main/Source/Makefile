@@ -19,6 +19,7 @@ $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/Lib/cJSON \
 $(TOPDIR)/Common/Periphery/EFlash \
 $(TOPDIR)/Common/Periphery/Motors \
+$(TOPDIR)/Common/Periphery/SIM5320 \
 $(TOPDIR)/Common/Device/Flash \
 $(TOPDIR)/Common/FreeRTOS/v10.1.1/include \
 $(TOPDIR)/Common/FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F

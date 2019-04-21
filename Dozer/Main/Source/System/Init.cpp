@@ -187,7 +187,7 @@ static inline void Init_GPIO()
 	ADC_TENSO_CS_DESELECT;
 	ADC_EXT_CS4_DESELECT;
 	// отключаем двигатели
-	PWR_SM0_EN;
+	PWR_SM0_DIS;
 	SM0_WAKEUP;
 	SM0_DISABLE;
 	SM0_FORWARD;

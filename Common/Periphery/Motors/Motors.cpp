@@ -15,71 +15,82 @@ void SetSpeedSM0(uint16_t period)
 }
 
 /* Инициализация периферии процессора для управления двигателем заслонки */
+/*
 void InitSM0(uint16_t period)
 {
-	/* Конфигурируем GPIOE.5 как выход таймера - генератора меандра для сигнала STEP контроллера ШД */
+	// Конфигурируем GPIOE.5 как выход таймера - генератора меандра для сигнала STEP контроллера ШД *
 	LL_GPIO_SetPinMode(GPIOE, LL_GPIO_PIN_5, LL_GPIO_MODE_ALTERNATE);
 	LL_GPIO_SetPinPull(GPIOE, LL_GPIO_PIN_5, LL_GPIO_PULL_DOWN);
 	LL_GPIO_SetPinSpeed(GPIOE, LL_GPIO_PIN_5, LL_GPIO_SPEED_FREQ_HIGH);
 	LL_GPIO_SetAFPin_0_7(GPIOE, LL_GPIO_PIN_5, LL_GPIO_AF_3);
 
-	/*********************************/
-	/* Инициализируем таймер - генератор меандра */
-	/*********************************/
-	/* Режим счёта - инкремент */
+	//
+	// Инициализируем таймер - генератор меандра *
+	//
+	// Режим счёта - инкремент *
 	LL_TIM_SetCounterMode(TIM9, LL_TIM_COUNTERMODE_UP);
  
-	/* режим периодической генерации импульса */
+	// режим периодической генерации импульса *
 	LL_TIM_SetOnePulseMode(TIM9, LL_TIM_ONEPULSEMODE_REPETITIVE);
   
-	/*  Задаём частоту тактирования таймера равной 10МГц  */  
+	//  Задаём частоту тактирования таймера равной 10МГц  *
 	LL_TIM_SetPrescaler(TIM9, __LL_TIM_CALC_PSC(SystemCoreClock, 10000000));
-	/*  Задаём коэфф. деления тактовой частоты, определяющий период следования импульсов */
+	//  Задаём коэфф. деления тактовой частоты, определяющий период следования импульсов *
 	SetSpeedSM0(period);
 
-	/* Настраиваем 1-й канал таймера */
+	// Настраиваем 1-й канал таймера *
 	LL_TIM_OC_SetMode(TIM9,  LL_TIM_CHANNEL_CH1,  LL_TIM_OCMODE_PWM2);
 
 	LL_TIM_OC_ConfigOutput(TIM9, LL_TIM_CHANNEL_CH1, LL_TIM_OCPOLARITY_HIGH | LL_TIM_OCIDLESTATE_LOW);
   
   
-	/**************************/
-	/* Финальные приготовления */
-	/**************************/
-	/* Включаем 1-й канал */
+	//
+	// Финальные приготовления *
+	//
+	// Включаем 1-й канал *
 	LL_TIM_CC_EnableChannel(TIM9, LL_TIM_CHANNEL_CH1);
   
-	/* Включаем выходы таймера */
+	// Включаем выходы таймера *
 	LL_TIM_EnableAllOutputs(TIM9);
   
-	/* Включаем автозагрузку регистра периода */
+	// Включаем автозагрузку регистра периода *
 	LL_TIM_EnableARRPreload(TIM9);
 
-	/* И перезаписываем его */
+	// И перезаписываем его *
 	LL_TIM_GenerateEvent_UPDATE(TIM9);  
 	
 //	На всякий случай пробуждаем драйвер ШД
 	SM0_WAKEUP;
 }
+*/
 
 /* Функция включения движения заслонки
 	если dir = 0, заслонка движется вниз, иначе вверх
  */
 void StartSM0(bool dir)
 {
+	UNUSED(dir);
+	PWR_SM0_EN;
+	LED_SM0_ON;
+/*
 	if (dir) SM0_BACKWARD; else SM0_FORWARD;	// задаём направление вращения на контроллере ШД
 	LED_SM0_ON;	// включаем сигнализацию о работе ШД заслонки
 	SM0_ENABLE;	// включаем контроллер ШД
 	LL_TIM_EnableCounter(TIM9);	// подаём меандр на вход step ШД
+*/
 }
 /*
 	Функция остановки движения заслонки
 */
 void StopSM0(void)
 {
+	PWR_SM0_DIS;
+	LED_SM0_OFF;
+/*
 	LL_TIM_DisableCounter(TIM9);	// прекращаем подачу меандра 
 	SM0_DISABLE;					// отключаем контроллер ШД
 	LED_SM0_OFF;					// гасим сигнализацию о работе ШД.
+*/
 }
 
 /*
@@ -93,7 +104,7 @@ void Motor0Proc(void *Param)
 	QueueHandle_t SM0_Queue = (QueueHandle_t)Param;		// сохраняем указатель на очередь локально.
 	uint8_t mButton;									// переменная для хранения значения нажатой кнопки
 	
-	InitSM0(0x400);	// при 0x400 - 22 сек полный ход.	// инициализируем таймер вращения
+//	InitSM0(0x400);	// при 0x400 - 22 сек полный ход.	// инициализируем таймер вращения
 	
 	while (1) {
 		if (uxQueueMessagesWaiting( SM0_Queue )) {	// если в очереди есть сообщения
@@ -101,8 +112,8 @@ void Motor0Proc(void *Param)
 			xQueueReceive(SM0_Queue, &mButton, 0);	// читаем значение нажатой кнопки
 			switch (mButton) {
 				case 0x0A: StartSM0(1); break;		// если нажата кнопка A, двигаемся вверх
-				case 0x0B: StartSM0(0); break;		// если нажата кнопка B, двигаемся вниз
-				default: StopSM0();					// если ни одна не нажата, останавливаемся
+				case 0x0B: StopSM0();/*StartSM0(0);*/ break;		// если нажата кнопка B, двигаемся вниз
+//				default: StopSM0();					// если ни одна не нажата, останавливаемся
 			}
 		}
 	}	
@@ -120,29 +131,26 @@ void Motor0Cycle(void *Param)
 	struct ble_date_time rtc;	// структура для хранения показаний часов реального времени
 	double wgt_start;			// переменная для хранения веса корма перед рассеиванием
 
-	InitSM0(0x400);				// инициализируем двигатель заслонки
+//	InitSM0(0x400);				// инициализируем двигатель заслонки
 	
 	while (1) {
 start:
 		StopSM0();								// останавливаем двигатель
 		vTaskSuspend( NULL );					// ожидаем включения крыльчатки (пробуждения от процесса Motor1Proc)
-		for (int i = 0; i < 70; i++) {			// после включения крыльчатки ожидаем 70 секунд переходной процесс фильтра
-			while (pdFAIL == xQueueReceive(RTC_to_SM0_Queue, &rtc, 0)) {if (motor1_on == 0) goto start; };
+		for (int i = 0; i < 25; i++) {			// после включения крыльчатки ожидаем 25 секунд переходной процесс фильтра
+			while (pdFAIL == xQueueReceive(RTC_to_SM0_Queue, &rtc, 0)) { if (motor1_on == 0) goto start; };
 		}
 		if (motor1_on != 0) {					// если к этому времени не выключили процесс кнопкой
+			double d = 0;
 			wgt_start = get_weight();			// фиксируем текущее показание датчика (P)
-			StartSM0(1);						// включаем движение заслонки вверх
-			vTaskDelay(MS_TO_TICK(3000));		// ждём 3 сек.
+			StartSM0(1);						// включаем ротор
 			while (motor1_on != 0) {			// пока не выключили рассеивание
-				StartSM0(0);					// включаем движение заслонки вниз
-				vTaskDelay(MS_TO_TICK(1000));	// ждём 1 сек.
-				StartSM0(1);					// включаем движение заслонки вверх
-				vTaskDelay(MS_TO_TICK(1000));	// ждём 1 сек.
-				if ((wgt_start - get_doze() + 830.0) > get_weight())	// проверяем условие прекращения рассеивания
+				if (((wgt_start - get_doze() + d) > get_weight()) || get_weight() < 30)	// проверяем условие прекращения рассеивания
 					if (purge_on == 0) { motor1_on = 0; break; }	// если нет режима опустошения, выключаем рассеивание
+				vTaskDelay(MS_TO_TICK(100));
+				d += (350 - d)/20;
 			}
-			StartSM0(0);						// включаем движение заслонки вниз
-			vTaskDelay(MS_TO_TICK(3000));		// выжидаем 3 сек.
+			StopSM0();
 		}
 	}
 }
@@ -240,9 +248,9 @@ void StopSM1(void)
 double speed = 65535.0;	// переменная для хранения делителя задания скорости вращения крыльчатки
 
 /* константы работы крыльчатки по синусоидальному закону */
-#define SPEED_MIN	1024.0							// максимальное значение делителя (минимальная скорость)
+#define SPEED_MIN	251.0//1024.0							// максимальное значение делителя (минимальная скорость)
 #define SPEED_MID	((SPEED_MAX + SPEED_MIN)/2.0)	// средняя скорость
-#define SPEED_MAX	195.0							// минимальное значение делителя (максимальная скорость)
+#define SPEED_MAX	250.0//195.0							// минимальное значение делителя (максимальная скорость)
 #define SPEED_AMP	((SPEED_MIN - SPEED_MAX)/2.0)	// амплитуда колебаний скорости
 
 /*
@@ -263,7 +271,8 @@ void Motor1Proc(void *Param)
 		while (motor1_on == 0) vTaskSuspend( NULL );		// ожидаем команды на включение
 		if (get_doze() == 0.0 && purge_on == 0) continue;	// если доза не задана и нет режима опустошения, возвращаемся к ожиданию
 		vTaskResume( Motor0CycleHandle );					// запускаем процесс управления заслонкой
-		StartSM1(0); 										// включаем движение крыльчатки на минимальной скорости
+		StartSM1(1); 										// включаем движение крыльчатки на минимальной скорости
+
 		for (;;) {											// цикл наращивания скорости по экспоненте
 			double d;										// переменная приращения экспоненты
 			SetSpeedSM1((uint32_t)speed);					// устанавливаем новое значение скорости
@@ -289,8 +298,8 @@ void Motor1Proc(void *Param)
 
 			SetSpeedSM1((uint32_t)(SPEED_MID + sin_var*SPEED_AMP));	// Задаём новое значение скорости ШД
 			vTaskDelay(MS_TO_TICK(10));								// с дискретностью 10 мс.
-			if (motor1_on == 0) {									// если пришла команда на завершение
-				if (sin_var < 0.0009 && sin_var > -0.0009) if (pre_sin_var < sin_var) break; // если скорость равна средней
+			if (motor1_on == 0) {	 break;								// если пришла команда на завершение
+//				if (sin_var < 0.0009 && sin_var > -0.0009) {LED_ERR_ON; if (pre_sin_var < sin_var) break;} // если скорость равна средней
 			}																				// и находится в фазе убывания
 		}
 		for (;;) {														// то переходим к циклу торможения

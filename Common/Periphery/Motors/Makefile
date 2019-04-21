@@ -18,6 +18,7 @@ $(TOPDIR)/Dozer/Main/Header/System \
 ../../CMSIS \
 ../../STM32F4xx_HAL_Driver/Inc \
 ../EFlash \
+../SIM5320 \
 ../../Device/Flash \
 ../../FreeRTOS/v10.1.1/include \
 ../../FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F

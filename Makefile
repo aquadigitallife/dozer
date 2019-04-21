@@ -11,6 +11,7 @@ SUBDIRS += Common/Periphery/Motors
 SUBDIRS += Common/Periphery/UART
 SUBDIRS += Common/Periphery/I2C
 SUBDIRS += Common/Periphery/SPI
+SUBDIRS += Common/Periphery/SIM5320
 SUBDIRS += Common/System
 SUBDIRS += Dozer/Main/Source
 	

@@ -54,6 +54,7 @@
 // Устройства
 #include "S25FL.h"
 #include "W25Q.h"
+#include "sim5320.h"
 
 // Общие определения
 #include "Common_Const.h"

@@ -204,18 +204,23 @@ void AD7799Proc(void *Param)
 	SampleFilter_init(&flt);
 
 	while (1) {
-		static uint8_t flag = 0;	// делитель частоты обновления фильтра на 2 (для выдачи значений веса в BLE) 
+		static uint8_t flag = 0;	// делитель частоты (для выдачи значений веса в BLE) 
 		int32_t iweight;	// вес в формате integer
 		SampleFilter_put(&flt, flt10);	// подаём на вход фильтра выход предварительного фильтра
 		
 		flt113 = SampleFilter_get(&flt);	// считываем выходное значение фильтра
-		weight = (flt113 - flt0)/51.02466;	// вычисляем вес: вычитаем смещение, делим на крутизну
-		iweight = (int32_t)weight;			// вес в формате integer для передачи в BLE
-		flag ^= 0xFF;	// делитель частоты на 2
-		// С частотой в 2 раза меньшей частоты обновления фильтра, обновляем значение веса в БД BLE
-		if (flag == 0) if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
-		// Частота обновления фильтра 2Гц
-		vTaskDelay(MS_TO_TICK(500));
+		weight = (flt113 - flt0)/61.5046295;//51.02466;	// вычисляем вес: вычитаем смещение, делим на крутизну
+		printf("%.3f\r\n", weight);
+//					// вес в формате integer для передачи в BLE
+		flag++;	// делитель частоты
+		// С периодом в 1 секунду, обновляем значение веса в БД BLE
+		if (flag == 10) {
+			flag = 0;
+			iweight = (int32_t)weight;
+			if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
+		}
+		// Частота обновления фильтра 10Гц
+		vTaskDelay(MS_TO_TICK(100));
 	}
 }
 

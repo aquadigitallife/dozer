@@ -5,7 +5,7 @@ SUBDIRS =
 CSRCS =
 
 CXXSRCS = \
-	EFlash.cpp
+	sim5320.cpp
 	
 INCDIRS = \
 . \
@@ -17,8 +17,7 @@ $(TOPDIR)/Dozer/Main/Header/System \
 ../../Lib/cJSON \
 ../../CMSIS \
 ../../STM32F4xx_HAL_Driver/Inc \
-../Motors \
-../SIM5320 \
+../EFlash \
 ../../Device/Flash \
 ../../FreeRTOS/v10.1.1/include \
 ../../FreeRTOS/v10.1.1/portable/GCC/ARM_CM4F

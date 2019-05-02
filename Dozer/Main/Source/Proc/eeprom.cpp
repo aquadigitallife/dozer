@@ -27,7 +27,7 @@ BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data)
 	while (pages--) {
 		uint16_t slen = ((paddr + PAGE_SIZE) & (uint16_t)(0 - PAGE_SIZE)) - paddr;
 		plen = plen - slen;
-		while (pdFAIL == i2c(0xA0, paddr, slen, pdata)) taskYIELD();
+		while (pdFAIL == i2c<uint16_t>(0xA0, paddr, slen, pdata)) taskYIELD();
 		paddr += slen; pdata += slen;
 	}
 	

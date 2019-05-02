@@ -19,6 +19,7 @@ GL_EXP TaskHandle_t LED_TaskHandle;
 GL_EXP TaskHandle_t FlashTaskHandle;
 GL_EXP TaskHandle_t ButtonsTaskHandle;
 GL_EXP TaskHandle_t Motor0CycleHandle;
+GL_EXP TaskHandle_t Motor1TaskHandle;
 GL_EXP TaskHandle_t BLETaskHandle;
 GL_EXP TaskHandle_t RTCTaskHandle;
 GL_EXP TaskHandle_t AD7799TaskHandle;

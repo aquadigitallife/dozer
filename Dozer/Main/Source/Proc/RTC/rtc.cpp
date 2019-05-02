@@ -54,6 +54,17 @@ __STATIC_INLINE uint8_t bin2bcd(uint16_t arg)
 {
 	return (uint8_t)(((arg/10)<<4) + arg%10);
 }
+
+void get_sys_date(struct date_time *dest)
+{
+	dest->year =	(uint16_t)(2000 + ((rtc.month & 0x80) >> 7)*100 + ((rtc.year & 0xF0) >> 4)*10 + (rtc.year & 0x0F));
+	dest->month =	(uint8_t)(((rtc.month & 0x10) >> 4)*10 + (rtc.month & 0x0F));
+	dest->day =		(uint8_t)(((rtc.date & 0xF0) >> 4)*10 + (rtc.date & 0x0F));
+	dest->hours =	(uint8_t)(((rtc.hours & 0x30) >> 4)*10 + (rtc.hours & 0x0F));
+	dest->minutes =	(uint8_t)(((rtc.minutes & 0xF0) >> 4)*10 + (rtc.minutes & 0x0F));
+	dest->seconds =	(uint8_t)(((rtc.seconds & 0xF0) >> 4)*10 + (rtc.seconds & 0x0F));
+}
+
 /*
 	Запись новой даты/времени в RTC по команде из BLE
 */
@@ -75,17 +86,11 @@ void ble_update_rtc(const struct date_time *arg)
 	i2c(RTC_WRITE, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtcw);
 //	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);
 	next_action.actual = 0;
+	next_action.day = arg->day;
+	next_action.hours = arg->hours;
+	next_action.minutes = arg->minutes;
 }
 
-void get_sys_date(struct date_time *dest)
-{
-	dest->year =	(uint16_t)(2000 + ((rtc.month & 0x80) >> 7)*100 + ((rtc.year & 0xF0) >> 4)*10 + (rtc.year & 0x0F));
-	dest->month =	(uint8_t)(((rtc.month & 0x10) >> 4)*10 + (rtc.month & 0x0F));
-	dest->day =		(uint8_t)(((rtc.date & 0xF0) >> 4)*10 + (rtc.date & 0x0F));
-	dest->hours =	(uint8_t)(((rtc.hours & 0x30) >> 4)*10 + (rtc.hours & 0x0F));
-	dest->minutes =	(uint8_t)(((rtc.minutes & 0xF0) >> 4)*10 + (rtc.minutes & 0x0F));
-	dest->seconds =	(uint8_t)(((rtc.seconds & 0xF0) >> 4)*10 + (rtc.seconds & 0x0F));
-}
 
 uint8_t day_inc(uint8_t day)
 {
@@ -124,16 +129,18 @@ int get_minutes(uint8_t hours, uint8_t minutes)
 	return retval;
 }
 
-void add_minutes(uint8_t *day, uint8_t *hours, uint8_t *minutes, int mins)
+//void add_minutes(uint8_t *day, uint8_t *hours, uint8_t *minutes, int mins)
+void add_minutes(struct dozer_action *action, int mins)
 {
 	uint32_t sum;
 	int pmins = mins;
 	
 	if (pmins > 1440) pmins = 1440;
-	if (pmins == 1440) *day = day_inc(*day);
-	sum = 60*(*hours) + *minutes + mins;
-	*hours = (sum/60)%24;
-	*minutes = sum%60;
+	if (pmins == 1440) action->day = day_inc(action->day);
+	sum = 60*(action->hours) + action->minutes + mins;
+	if ((sum/60)/24 > 0) action->day = day_inc(action->day);
+	action->hours = (sum/60)%24;
+	action->minutes = sum%60;
 }
 
 bool is_action_trigged(struct dozer_action *action, struct date_time *now)
@@ -154,18 +161,21 @@ bool is_alarm_time(struct dozer_action *action, struct date_time *now)
 	return false;
 }
 
-bool is_action_gt(struct dozer_action *act1, struct dozer_action *act2)
+int action_compare(struct dozer_action *act1, struct dozer_action *act2)
 {
-	if (act1->day == day_inc(act2->day)) return true;
-	if (act2->day == day_inc(act1->day)) return false;
+	if (act1->day == day_inc(act2->day)) return 1;
+	if (act2->day == day_inc(act1->day)) return -1;
 	if (act1->day == act2->day) {
-		if (act1->hours < act2->hours) return false;
-		if (act1->hours > act2->hours) return true;
-		if (act1->minutes > act2->minutes) return true;
-		return false;
+		if (act1->hours < act2->hours) return -1;
+		if (act1->hours > act2->hours) return 1;
+		if (act1->minutes > act2->minutes) return 1;
+		if (act1->minutes < act2->minutes) return -1;
+		return 0;
 	}
 	printf("is_action_gt: ERROR: these are not the next days!\r\n");
-	return false;
+	printf("day1: %d day2: %d\r\n", act1->day, act2->day);
+	if (act1->day > act2->day) return 1;
+	return -1;
 }
 
 /*
@@ -174,6 +184,8 @@ bool is_action_gt(struct dozer_action *act1, struct dozer_action *act2)
 */
 void RTCProc(void *Param)
 {
+	struct date_time ble;
+	
 	i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, aging), &rtc);	// читаем текущее время из микросхемы
 
 	rtc.status = 0;
@@ -191,9 +203,13 @@ void RTCProc(void *Param)
 
 	i2c(RTC_WRITE, (uint8_t)offsetof(struct rtc_time_struct, status), sizeof(rtc.status), &rtc.status);		// возможно избыточно
 
-	next_action.day = rtc.day;
-	next_action.hours = rtc.hours;
-	next_action.minutes = rtc.minutes;
+	get_sys_date(&ble);
+	
+	next_action.day = ble.day;
+	next_action.hours = ble.hours;
+	next_action.minutes = ble.minutes;
+	
+	printf("start: %d:%d:%d\r\n", next_action.day, next_action.hours, next_action.minutes);
 	
 	for (;;) {
 		static uint8_t seconds;	// переменная для определения момента истечения секунды
@@ -203,13 +219,13 @@ void RTCProc(void *Param)
 		i2c(RTC_READ, (uint8_t)0, offsetof(rtc_time_struct, alarms), &rtc);	// читаем текущие дату и время
 
 		if (seconds != rtc.seconds) {	// если значение секунд изменилось, отправляем новое значение даты/времени в очередь сообщений для BLE и двигателя заслонки
-			struct date_time ble;
 			get_sys_date(&ble);
 			if (RTC_Queue != NULL) xQueueSendToBack(RTC_Queue, &ble, 0);
 			
 			if ( is_alarm_time(&next_action, &ble) && (next_action.actual != 0) ) {
-//				set_doze(next_action.doze);
+				set_doze(next_action.doze);
 				printf("action on %d:%d doze: %.3f\r\n", next_action.hours, next_action.minutes, next_action.doze);
+				motor1_on = 0xFF; vTaskResume( Motor1TaskHandle );	// запускаем процесс
 				next_action.actual = 0;
 			}
 		}

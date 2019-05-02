@@ -51,9 +51,9 @@ extern struct dozer_action next_action;
 void ble_update_rtc(const struct date_time *arg);	// функция установки RTC со смартфона
 void get_sys_date(struct date_time *dest);
 int get_minutes(uint8_t hours, uint8_t minutes);
-void add_minutes(uint8_t *day, uint8_t *hours, uint8_t *minutes, int mins);
+void add_minutes(struct dozer_action *action, int mins);
 bool is_action_trigged(struct dozer_action *action, struct date_time *now);
-bool is_action_gt(struct dozer_action *act1, struct dozer_action *act2);
+int action_compare(struct dozer_action *act1, struct dozer_action *act2);
 uint8_t day_inc(uint8_t day);
 void RTCProc(void *Param);	// процесс выдачи сообщений о текущем времени каждую секунду
 /*------------------------------SPI------------------------------*/
@@ -76,7 +76,9 @@ void set_doze(double val);
 #define MAX_EEPROM_ADDR	0x1FFF	// Максимальный адрес EEPROM
 #define EEPROM_SIZE	0x2000
 #define TENSO_OFFSET_ADDR	0x0000	// адрес хранения начального смещения АЦП
-#define TOKENADDR_ADDR		0x0008
+#define TANK_NUM_ADDR	0x0008		// 51 байт
+#define INN_ADDR		0x003С		// 13 байт
+#define PSW_ADDR		0x0048
 
 BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);		// функция записи в EEPROM
 portINLINE BaseType_t ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
@@ -113,4 +115,9 @@ void GSMUartClean(void);
 
 /*-----------------------------GSM----------------------------------*/
 #define EEPROM_TOKEN	0x0008
+#define INTERVAL_MODE	0
+#define SHEDULE_MODE	-1
+void tank_change(void);
 void https_start(void *Param);
+/*----------------------------Motors--------------------------------*/
+extern uint8_t motor1_on;

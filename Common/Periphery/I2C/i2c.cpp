@@ -320,11 +320,15 @@ BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data)
 	uint32_t ulNotifiedValue;													// переменная для функции xTaskNotifyWait
 	if (xSemaphoreTake( i2c_lock, portMAX_DELAY ) == pdFAIL) return pdFAIL;		// захватываем мьютекс
 	
-	reg_addr = addr;															// сохраняем адрес локально
+	for (size_t i = 0; i < sizeof(T); i++)
+		((uint8_t*)&reg_addr)[i] = ((uint8_t*)&addr)[sizeof(T)-1-i];			// сохраняем адрес локально
+
+
 	device_addr = dev & ~I2C_REQUEST_READ;										// получаем "чистый" адрес устройства
 	ubDirection = dev & I2C_REQUEST_READ;										// получаем запрашиваемый тип транзакции (запись/чтение)
 	pdata = data;																// сохраняем указатель на буфер данных локально
 	xHandlingTask = xTaskGetCurrentTaskHandle();								// привязываем текущую задачу к контроллеру
+
 	/* (1) Устанавливаем указатель DMA и счётчик байт  *******************/
 
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_STREAM_4, (uint32_t)&reg_addr);			// указатель DMA на адрес в памяти устройства

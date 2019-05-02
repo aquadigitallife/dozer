@@ -4,6 +4,8 @@
 
 #include "Global.h"
 
+#define TEST_WITHOUT_WEIGHT
+
 uint8_t motor1_on = 0;	// флаг-признак включения/выключения процесса рассеивания. 0 - выкл. FFh - вкл.
 uint8_t purge_on = 0;	// совместно с motor1_on флаг-признак включения процесса полной выгрузки (рассеивание выключается оператором)
 
@@ -128,12 +130,13 @@ void Motor0Proc(void *Param)
 */
 void Motor0Cycle(void *Param)
 {
+
 	double wgt_start;			// переменная для хранения веса корма перед рассеиванием
 
 //	InitSM0(0x400);				// инициализируем двигатель заслонки
 	
 	while (1) {
-//start:
+
 		StopSM0();								// останавливаем двигатель
 		vTaskSuspend( NULL );					// ожидаем включения крыльчатки (пробуждения от процесса Motor1Proc)
 		for (int i = 0; i < 25; i++) {			// после включения крыльчатки ожидаем 25 секунд разгон крыльчатки
@@ -142,15 +145,28 @@ void Motor0Cycle(void *Param)
 		}
 		if (motor1_on != 0) {					// если к этому времени не выключили процесс кнопкой
 			double d = 0;
+#ifdef TEST_WITHOUT_WEIGHT
+			int i = 0;
+#endif
 			wgt_start = get_weight();			// фиксируем текущее показание датчика (P)
 			StartSM0(1);						// включаем ротор
 			while (motor1_on != 0) {			// пока не выключили рассеивание
-				if (((wgt_start - get_doze() + d) > get_weight()) || get_weight() < 30)	// проверяем условие прекращения рассеивания
+				if (
+#ifndef TEST_WITHOUT_WEIGHT
+					((wgt_start - get_doze() + d) > get_weight()) 
+					|| get_weight() < 30
+#else
+					i > 100
+#endif
+					)	// проверяем условие прекращения рассеивания
 					if (purge_on == 0) { motor1_on = 0; break; }	// если нет режима опустошения, выключаем рассеивание
 				vTaskDelay(MS_TO_TICK(100));
 				d += (350 - d)/20;
+#ifdef TEST_WITHOUT_WEIGHT
+				(void)wgt_start;
+				i++;
+#endif
 			}
-//			StopSM0();
 		}
 	}
 }

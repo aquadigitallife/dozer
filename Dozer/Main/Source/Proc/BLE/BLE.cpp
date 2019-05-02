@@ -106,7 +106,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				switch (evt->data.evt_gatt_server_attribute_value.att_opcode) {	// селектор типа действия с атрибутом
 					case gatt_write_request:	// запрос на запись
 					/* обновляем дату и время в RTC */
-						printf("change date: %04d:%02d:%02d:%02d:%02d:%02d\r\n", date_ptr->year, date_ptr->month, date_ptr->day, date_ptr->hours, date_ptr->minutes, date_ptr->seconds);
+//						printf("change date: %04d-%02d-%02d %02d:%02d:%02d\r\n", date_ptr->year, date_ptr->month, date_ptr->day, date_ptr->hours, date_ptr->minutes, date_ptr->seconds);
 						ble_update_rtc((const struct date_time*)evt->data.evt_gatt_server_attribute_value.value.data);
 						
 					break;
@@ -129,7 +129,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 					extern uint8_t motor1_on, purge_on;
 					extern TaskHandle_t Motor1TaskHandle;
 					if (evt->data.evt_gatt_server_attribute_value.value.data[0] != 0) {	// если аттрибут не равен нулю
-						motor1_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON;	// запускаем процесс
+						motor1_on = 0xFF; vTaskResume( Motor1TaskHandle );	// запускаем процесс
 					}
 					else {motor1_on = 0; purge_on = 0; LED_SM1_OFF;}	// иначе останавливаем процесс
 				}
@@ -138,6 +138,16 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 			case gattdb_calibrate:	// команда на сброс и сохранение начального смещения АЦП тензодатчика
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
 					set_ad7799_zero();	// при любом значении аттрибута сбрасываем в ноль и записываем смещение
+				}
+			break;
+			
+			case gattdb_pool_number:
+				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
+					if (pdFAIL == ee_write(TANK_NUM_ADDR,
+										evt->data.evt_gatt_server_attribute_value.value.len+1,
+										&evt->data.evt_gatt_server_attribute_value.value)
+						) printf("tankNum write fail\r\n");
+					else tank_change();
 				}
 		}
 	break;

@@ -218,135 +218,159 @@ void https_start(void *Param)
 		,2004
 	};
 */
-	char *token;
+	char *token = NULL;
 	char *request, *response;
 	int hcode;
-	cJSON *json, *tank;
+	cJSON *json;
+	cJSON *tank = NULL;
 	cJSON *jobj = NULL;
 
 	fd = gsm_init();
-//	printf("opening network...");
+	printf("opening network...");
 	if (at_cmd(NULL, NULL, "%s", at_cmd_https_start)) ON_ERROR("error!\r\n");
-	if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");
-//	printf("done\r\n");
-
-	if (pdFAIL == get_tank_token(610, &tank, &token)) ON_ERROR("error get_tank_token\r\n");
-/*
-	if (tank != NULL) {
-		for (const cJSON *item = tank->child; item != NULL; item = item->next) {
-			printf("%s ", item->string);
-			switch (item->type) {
-				case cJSON_False:
-					printf("false\r\n");
-					break;
-				case cJSON_True:
-					printf("true\r\n");
-					break;
-				case cJSON_Number:
-					printf("%.3f\r\n", item->valuedouble);
-					break;
-				case cJSON_String:
-					printf("%s\r\n", item->valuestring);
-					break;
-				default:
-					printf("???\r\n");
-			}
-		}
-		cJSON_Delete(tank);
-	} else printf("tank is null\r\n");
-*/
-/*---------------------get dispancer--------------------------------------*/	
-//	printf("\r\n\r\n");
-
-	json = cJSON_CreateObject();
-	if (json == NULL) ON_ERROR("no memory!\r\n");
-	if (cJSON_AddNumberToObject(json, "nTankId", 610) == NULL) ON_ERROR("no memory!\r\n");
-	request = cJSON_PrintUnformatted(json);
-	cJSON_Delete(json);
-	if (request == NULL) ON_ERROR("no memory!\r\n");
-
-	response = https_request(cmd_get_dispancer, request, token);
-	free(request);
-	if (response == NULL) ON_ERROR("error!\r\n");
+	printf("done\r\n");
 	
-	sscanf(response, "HTTP/1.1 %d OK", &hcode);
-	if (hcode != 200) {
-		free(response);
-		ON_ERROR("http ret: %d\r\n", hcode);
-	}
-//	printf("\r\n");
-//	printf("%s", strstr(response, "{"));
-	json = cJSON_Parse(strstr(response, "{"));
-	free(response);
+	while (true) {
+		printf("connect to server...");
+		if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");
+		printf("done\r\n");
+		
+		if (pdFAIL == get_tank_token(610, &tank, &token)) ON_ERROR("error get_tank_token\r\n");
+		
+//		show_json_obj(tank);
+		while(true) {
+/*---------------------get dispancer--------------------------------------*/	
+//			printf("\r\n\r\n");
 
-	if (json == NULL) {
-        const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL)
-        {
-            printf("Error before: %s\n", error_ptr);
-        }
-	}
-	jobj = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(json, "dispanser"), 1);
-	cJSON_Delete(json);
-/*------------------------------------------------------------------------*/	
-/*	if (jobj != NULL) {
-		for (const cJSON *item = jobj->child; item != NULL; item = item->next) {
-			printf("%s ", item->string);
-			switch (item->type) {
-				case cJSON_False:
-					printf("false\r\n");
-					break;
-				case cJSON_True:
-					printf("true\r\n");
-					break;
-				case cJSON_Number:
-					printf("%.3f\r\n", item->valuedouble);
-					break;
-				case cJSON_String:
-					printf("%s\r\n", item->valuestring);
-					break;
-				case cJSON_Array:
-				{
-					const cJSON *sitem;
-					printf("array:\r\n");
-					cJSON_ArrayForEach(sitem, item)
-					{
-						for (const cJSON *ch = sitem->child; ch != NULL; ch = ch->next) {
-							printf("    %s ", ch->string);
-							switch (ch->type) {
-								case cJSON_False:
-									printf("false");
-									break;
-								case cJSON_True:
-									printf("true");
-									break;
-								case cJSON_Number:
-									printf("%.3f", ch->valuedouble);
-									break;
-								case cJSON_String:
-									printf("%s", ch->valuestring);
-									break;
-								default:
-									printf("???");
+			json = cJSON_CreateObject();
+		
+			if (json == NULL) ON_ERROR("no memory!\r\n");
+			if (cJSON_AddNumberToObject(json, "nTankId", 610) == NULL) {cJSON_Delete(json); ON_ERROR("no memory!\r\n");}
+
+			request = cJSON_PrintUnformatted(json);
+			cJSON_Delete(json);
+		
+			if (request == NULL) ON_ERROR("no memory!\r\n");
+
+			response = https_request(cmd_get_dispancer, request, token);
+			free(request);
+		
+			if (response == NULL) ON_ERROR("error get_dispancer\r\n");
+	
+			sscanf(response, "HTTP/1.1 %d OK", &hcode);
+			if (hcode != 200) {
+				free(response);
+				ON_ERROR("http ret: %d\r\n", hcode);
+			}
+//			printf("\r\n");
+//			printf("%s", strstr(response, "{"));
+			json = cJSON_Parse(strstr(response, "{"));
+
+			if (json == NULL) {
+				const char *error_ptr = cJSON_GetErrorPtr();
+				if (error_ptr != NULL) printf("error before: %s\n", error_ptr);
+				free(response);
+				ON_ERROR("json parse error\r\n");
+			}
+			free(response);
+
+			jobj = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(json, "dispanser"), 1);
+			cJSON_Delete(json);
+			
+//			show_json_obj(jobj);
+			struct date_time now;
+			get_sys_date(&now);
+//			printf("curr time: %02d:%02d:%02d\r\n", now.day, now.hours, now.minutes);
+			if (next_action.actual == 0) {
+				
+				uint8_t hours, minutes;
+				double daily;
+				
+				json = cJSON_GetObjectItemCaseSensitive(jobj, "nScheduleH");
+				hours = json->valueint;
+				json = cJSON_GetObjectItemCaseSensitive(jobj, "nScheduleM");
+				minutes = json->valueint;
+				json = cJSON_GetObjectItemCaseSensitive(jobj, "nDailyDose");
+				daily = json->valuedouble;
+			
+				
+				if ((hours == 0) && (minutes == 0)) {	// работа по расписанию
+					const cJSON *sitem, *ch;
+					int i, tg;
+					struct dozer_action tmp;
+//					printf("on sheduler\r\n");
+					json = cJSON_GetObjectItemCaseSensitive(jobj, "cSchedule");
+					if (json == NULL) printf("cSchedule is NULL\r\n");
+
+					tmp.day = now.day;
+					tmp.actual = 0;
+					
+					next_action.day = now.day;
+
+					for (int j = 0; j < 2; j++) {
+	//					printf("iter %d\r\n", j);
+						next_action.hours = 23;
+						next_action.minutes = 59;
+						i = 0; tg = 0;
+						cJSON_ArrayForEach(sitem, json)
+						{
+							ch = cJSON_GetObjectItemCaseSensitive(sitem, "nTime");
+							if (ch == NULL) continue;
+							tmp.hours = ch->valueint;
+							if (tmp.hours == 24) tmp.hours = 0;
+							ch = cJSON_GetObjectItemCaseSensitive(sitem, "nMinutes");
+							if (ch == NULL) continue;
+							tmp.minutes = ch->valueint;
+
+							ch = cJSON_GetObjectItemCaseSensitive(sitem, "nPersentage");
+							if (ch == NULL) tmp.doze = 0;
+							else tmp.doze = daily*ch->valuedouble/100.0;
+
+							i++;
+							if (true == is_action_trigged(&tmp, &now)) {
+	//							printf("action triggered: %d\r\n", i);
+								if (is_action_gt(&next_action, &tmp)) {
+									memcpy(&next_action, &tmp, sizeof(struct dozer_action));
+									tg = i;
+									
+								}
 							}
 						}
-						printf("\r\n");
+						if (tg != 0) {
+	//						printf("action gt %d %d:%d:%d\r\n", tg, next_action.day, next_action.hours, next_action.minutes);
+							next_action.actual = tg;
+							break;
+						}
+						tmp.day = day_inc(tmp.day); next_action.day = day_inc(next_action.day);
 					}
-					break;
+
+				} else {
+//					printf("on interval\r\n");
+//					printf("hours: %d minutes: %d\r\n", hours, minutes);
+					while (false == is_action_trigged(&next_action, &now))
+						add_minutes(&next_action.day, &next_action.hours, & next_action.minutes, get_minutes(hours, minutes));
+
+					next_action.doze = daily*(double)get_minutes(hours, minutes)/1440.0;
+					next_action.actual = 1;
 				}
-				default:
-					printf("???\r\n");
+
+//				printf("current time: %d:%d:%d\r\n", now.day, now.hours, now.minutes);
+//				printf("next action: %d:%d:%d doze: %.3f\r\n", next_action.day, next_action.hours, next_action.minutes, next_action.doze);
 			}
+/*------------------------------------------------------------------------*/	
+			vTaskDelay(MS_TO_TICK(60000));
+			cJSON_Delete(jobj);
+
+			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
+			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");
 		}
-	} else printf("dispancer is null\r\n");
-*/
-	cJSON_Delete(jobj);
-
 network_close:
-//	printf("close network...");
-	at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
+		if (tank != NULL) { free(tank); tank = NULL; } if (token != NULL) { free(token); token = NULL; }
+//		printf("close network...");
+		at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
 
-	if (status == HTTPS_STATE_OPENED_SESSION) at_cmd(NULL, NULL, "%s", at_cmd_https_close);
+		if (status == HTTPS_STATE_OPENED_SESSION) at_cmd(NULL, NULL, "%s", at_cmd_https_close);
+	}
 	at_cmd(NULL, NULL, "%s", at_cmd_https_stop);
 //	printf("done\r\n");
 	vTaskDelete(NULL);

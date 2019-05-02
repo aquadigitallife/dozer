@@ -4,7 +4,7 @@ SUBDIRS =
 
 CSRCS = cJSON.c
 
-CXXSRCS =
+CXXSRCS = json_show.cpp
 
 INCDIRS = . \
 .. \

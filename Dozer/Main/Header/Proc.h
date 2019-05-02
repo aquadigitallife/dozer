@@ -18,8 +18,16 @@ void BLEUartTx(uint32_t len, uint8_t *data);				// функция передач
 int32_t BLEUartRx(uint32_t len, uint8_t *data);				// функция приёма данных из BLE
 int32_t BLEUartPeek(void);									// функция проверки наличия сообщений от BLE
 /*------------------------------BLE------------------------------*/
+
+void BLEProc(void *Param);	
+/*------------------------------I2C-----------------------------*/
+void Init_I2C(void);	// инициализация контроллера I2C
+
+template <typename T>	// функции приёма/передачи по шине I2C. T может быть либо uint8_t (для RTC) либо uint16_t (для EEPROM)
+BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);	// если LSB dev == 1 то чтение если 0 - запись
+/*-----------------------------RTC-------------------------------*/
 /* Структура даты и времени в модуле BLE */
-struct ble_date_time
+struct date_time
 {
 	uint16_t year;
 	uint8_t month;
@@ -29,14 +37,24 @@ struct ble_date_time
 	uint8_t seconds;
 } __packed;
 
-void BLEProc(void *Param);	
-/*------------------------------I2C-----------------------------*/
-void Init_I2C(void);	// инициализация контроллера I2C
+struct dozer_action
+{
+	uint8_t	actual;
+	uint8_t day;
+	uint8_t hours;
+	uint8_t minutes;
+	double	doze;
+};
 
-template <typename T>	// функции приёма/передачи по шине I2C. T может быть либо uint8_t (для RTC) либо uint16_t (для EEPROM)
-BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);	// если LSB dev == 1 то чтение если 0 - запись
-/*-----------------------------RTC-------------------------------*/
-void ble_update_rtc(const struct ble_date_time *arg);	// функция установки RTC со смартфона
+extern struct dozer_action next_action;
+
+void ble_update_rtc(const struct date_time *arg);	// функция установки RTC со смартфона
+void get_sys_date(struct date_time *dest);
+int get_minutes(uint8_t hours, uint8_t minutes);
+void add_minutes(uint8_t *day, uint8_t *hours, uint8_t *minutes, int mins);
+bool is_action_trigged(struct dozer_action *action, struct date_time *now);
+bool is_action_gt(struct dozer_action *act1, struct dozer_action *act2);
+uint8_t day_inc(uint8_t day);
 void RTCProc(void *Param);	// процесс выдачи сообщений о текущем времени каждую секунду
 /*------------------------------SPI------------------------------*/
 void start_SPI(void);				// старт SPI-транзакции
@@ -48,7 +66,11 @@ void AD7799Proc(void *Param);		// основной фильтр показани
 int32_t set_ad7799_zero(void);		// обнуление начального смещения и запись его в EEPROM
 double get_weight(void);			// функция чтения текущего веса
 double get_doze(void);				// функция чтения заданной дозы
+
+#ifdef __cplusplus
 void set_doze(int32_t val);			// установка дозы через BLE
+void set_doze(double val);
+#endif
 
 /*-----------------------------EEPROM----------------------------*/
 #define MAX_EEPROM_ADDR	0x1FFF	// Максимальный адрес EEPROM

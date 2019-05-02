@@ -1,6 +1,6 @@
 #include "SampleFilter.h"
 
-static double filter_taps[SAMPLEFILTER_TAP_NUM] = {
+static const double filter_taps[SAMPLEFILTER_TAP_NUM] = {
   0.0011250095965782457,
   0.0040286164068818004,
   0.009353894935487977,

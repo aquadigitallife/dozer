@@ -178,9 +178,11 @@ void BLEUartTx(uint32_t len, uint8_t *data)
 */
 int32_t BLEUartRx(uint32_t len, uint8_t *data)
 {
+	size_t plen = xStreamBufferBytesAvailable(BLEStreamBuffer) + xStreamBufferSpacesAvailable(BLEStreamBuffer);
+	if (len == 0) return 0;
 //	xStreamBufferReset( BLEStreamBuffer );
-	xStreamBufferSetTriggerLevel( BLEStreamBuffer, len );			// устанавливаем новый порог ожидания в стримбуфере, равный длине принимающего массива
-	return xStreamBufferReceive( BLEStreamBuffer, data, len, 500 );	// читаем байты из стримбуфера
+//	xStreamBufferSetTriggerLevel( BLEStreamBuffer, len );			// устанавливаем новый порог ожидания в стримбуфере, равный длине принимающего массива
+	return xStreamBufferReceive( BLEStreamBuffer, data, len < plen ? len : plen, portMAX_DELAY);	// читаем байты из стримбуфера
 }
 /*
 	Функция проверки наличия данных в стримбуфере

@@ -113,9 +113,7 @@ static inline void Init_RTOS()
 
 	Config_Queue		= xQueueCreate(1, sizeof(STR_CONFIG));
 	// Создаём очередь сообщений RTC
-	RTC_Queue			= xQueueCreate(1, sizeof(struct ble_date_time));
-	// Очередь сообщений от RTC к Motor0Cycle
-	RTC_to_SM0_Queue	= xQueueCreate(1, sizeof(struct ble_date_time));
+	RTC_Queue			= xQueueCreate(1, sizeof(struct date_time));
 	// Очередь сообщений от тензодатчика к BLE
 	AD7799_Queue		= xQueueCreate(10, sizeof(int32_t));
 

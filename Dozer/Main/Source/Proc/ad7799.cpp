@@ -81,13 +81,13 @@ T ad7799_rd(uint8_t addr)
 	
 	// (1) Настраиваем DMA на передачу нулей *******************
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_5, (uint32_t)&null_val);
-	if (sizeof(T) > 2)	// если T == int32_t, принимаем 3 байта
+	if (sizeof(T) > 2)														// если T == int32_t, принимаем 3 байта
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, 3);
-	else	// иначе кол-во байт равно размеру типа (2 или 1)
+	else																	// иначе кол-во байт равно размеру типа (2 или 1)
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_5, sizeof(T));
 	// приём байт в переменную pretval
 	LL_DMA_SetMemoryAddress(DMA2, LL_DMA_STREAM_6, (uint32_t)&pretval);
-	if (sizeof(T) > 2)	// кол-во байт на приём аналогично передаче
+	if (sizeof(T) > 2)														// кол-во байт на приём аналогично передаче
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, 3);
 	else
 		LL_DMA_SetDataLength(DMA2, LL_DMA_STREAM_6, sizeof(T));
@@ -210,14 +210,14 @@ void AD7799Proc(void *Param)
 		
 		flt113 = SampleFilter_get(&flt);	// считываем выходное значение фильтра
 		weight = (flt113 - flt0)/61.5046295;//51.02466;	// вычисляем вес: вычитаем смещение, делим на крутизну
-		printf("%.3f\r\n", weight);
-//					// вес в формате integer для передачи в BLE
+//		printf("%.3f\r\n", weight);
+
 		flag++;	// делитель частоты
 		// С периодом в 1 секунду, обновляем значение веса в БД BLE
 		if (flag == 10) {
 			flag = 0;
-			iweight = (int32_t)weight;
-			if (RTC_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
+			iweight = (int32_t)weight;	// вес в формате integer для передачи в BLE
+			if (AD7799_Queue != NULL) xQueueSendToBack(AD7799_Queue, &iweight, 0);
 		}
 		// Частота обновления фильтра 10Гц
 		vTaskDelay(MS_TO_TICK(100));
@@ -250,6 +250,11 @@ double get_weight(void)
 void set_doze(int32_t val)
 {
 	doze = ((double)val);	
+}
+
+void set_doze(double val)
+{
+	doze = val;
 }
 
 /*

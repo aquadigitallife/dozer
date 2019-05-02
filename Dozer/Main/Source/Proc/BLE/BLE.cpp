@@ -42,13 +42,12 @@ void BLEProc(void *Param)
 		if (appBooted == false) continue;				// возможно избыточность
 		
 		if (RTC_Queue != NULL) {		// проверка готовности очереди RTC
-//			static uint8_t flag = 0;
-			struct ble_date_time rtc;
+			struct date_time rtc;
 			if (pdPASS == xQueueReceive(RTC_Queue, &rtc, 0)) {	// если пришло текущее время от RTC
 			/* записываем время в БД BLE */
-				gecko_cmd_gatt_server_write_attribute_value(gattdb_date_time, 0x0000, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_date_time, 0x0000, sizeof(struct date_time), (const uint8_t*)&rtc);
 			/* Уведомляем об этом смартфон */
-				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_date_time, sizeof(struct ble_date_time), (const uint8_t*)&rtc);
+				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_date_time, sizeof(struct date_time), (const uint8_t*)&rtc);
 			}
 		}
 		taskYIELD();
@@ -69,6 +68,9 @@ void BLEProc(void *Param)
  *  Обработка сообщений от BLE
  *  evt - указатель на сообщение
  **************************************************************************************************/
+#define date_ptr ((const struct date_time*)evt->data.evt_gatt_server_attribute_value.value.data)
+#define date_len (evt->data.evt_gatt_server_attribute_value.value.len)
+#define date_offset (evt->data.evt_gatt_server_attribute_value.offset)
 int appHandleEvents(struct gecko_cmd_packet *evt)
 {
   // Пока BLE не готов, сообщени не обрабатываются
@@ -104,7 +106,9 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				switch (evt->data.evt_gatt_server_attribute_value.att_opcode) {	// селектор типа действия с атрибутом
 					case gatt_write_request:	// запрос на запись
 					/* обновляем дату и время в RTC */
-						ble_update_rtc((const struct ble_date_time*)evt->data.evt_gatt_server_attribute_value.value.data);
+						printf("change date: %04d:%02d:%02d:%02d:%02d:%02d\r\n", date_ptr->year, date_ptr->month, date_ptr->day, date_ptr->hours, date_ptr->minutes, date_ptr->seconds);
+						ble_update_rtc((const struct date_time*)evt->data.evt_gatt_server_attribute_value.value.data);
+						
 					break;
 				}
 			break;

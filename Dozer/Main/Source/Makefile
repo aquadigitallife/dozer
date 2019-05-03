@@ -12,6 +12,7 @@ INCDIRS = \
 ../Header \
 ../Header/Global \
 ../Header/System \
+../Header/BLE \
 $(TOPDIR)/Common/CMSIS \
 $(TOPDIR)/Common/STM32F4xx_HAL_Driver/Inc \
 $(TOPDIR)/Common/Lib \

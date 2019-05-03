@@ -5,8 +5,8 @@
 #include "Global.h"
 
 /* BG stack headers */
-#include "gecko_bglib.h"
-#include "gatt_db.h"
+//#include "gecko_bglib.h"
+//#include "gatt_db.h"
 
 #include "i2c.h"
 
@@ -15,7 +15,14 @@ BGLIB_DEFINE();		// объявление структур для работы bg
 // App booted flag
 static bool appBooted = false;	// признак готовности модуля BLE
 
+SemaphoreHandle_t ble_write_lock;
+
 int appHandleEvents(struct gecko_cmd_packet *evt);	// функция обработки сообщений от BLE
+
+bool is_ble_ready(void)
+{
+	return appBooted;
+}
 /*
 	Процесс обработки сообщений от BLE и сообщений других модулей (RTC, AD7799),
 	предназначенных для BLE
@@ -29,15 +36,20 @@ void BLEProc(void *Param)
 
 	InitBLEUart(BGLIB_MSG_MAX_PAYLOAD+4);	// Инициализация UART BLE
 	
+	 ble_write_lock = xSemaphoreCreateMutex();
 
 	gecko_cmd_system_reset(0);	// сброс BLE модуля
 	while (1) {
 
+		xSemaphoreTake( ble_write_lock, portMAX_DELAY );
 		evt = gecko_peek_event();	// проверяем на наличие сообщений от BLE
 		if (NULL != evt) {	// если сообщение принято
-			if (appHandleEvents(evt) == -1) continue;	// обрабатываем сообщение. В случае кода возврата -1 - признак неготовности модуля BLE
-														// возвращаемся на ожидание сообщения
+			if (appHandleEvents(evt) == -1) {
+				xSemaphoreGive( ble_write_lock );
+				continue;	// обрабатываем сообщение. В случае кода возврата -1 - признак неготовности модуля BLE
+			}										// возвращаемся на ожидание сообщения
 		}
+		xSemaphoreGive( ble_write_lock );
 		taskYIELD();
 		if (appBooted == false) continue;				// возможно избыточность
 		
@@ -45,9 +57,11 @@ void BLEProc(void *Param)
 			struct date_time rtc;
 			if (pdPASS == xQueueReceive(RTC_Queue, &rtc, 0)) {	// если пришло текущее время от RTC
 			/* записываем время в БД BLE */
+				xSemaphoreTake( ble_write_lock, portMAX_DELAY );
 				gecko_cmd_gatt_server_write_attribute_value(gattdb_date_time, 0x0000, sizeof(struct date_time), (const uint8_t*)&rtc);
 			/* Уведомляем об этом смартфон */
 				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_date_time, sizeof(struct date_time), (const uint8_t*)&rtc);
+				xSemaphoreGive( ble_write_lock );
 			}
 		}
 		taskYIELD();
@@ -55,9 +69,11 @@ void BLEProc(void *Param)
 			uint8_t ad_id[6] = {0,0,0,0,0,0};
 			if (pdPASS == xQueueReceive(AD7799_Queue, &ad_id, 0)) {	// если пришло сообщение о текущем весе корма
 			/* записываем в БД BLE */
+				xSemaphoreTake( ble_write_lock, portMAX_DELAY );
 				gecko_cmd_gatt_server_write_attribute_value(gattdb_op_time, 0x0000, sizeof(ad_id), (const uint8_t*)&ad_id);
 			/* Уведомляем об этом смартфон */
 				gecko_cmd_gatt_server_send_characteristic_notification(0xFF, gattdb_op_time, sizeof(ad_id), (const uint8_t*)&ad_id);
+				xSemaphoreGive( ble_write_lock );
 			}
 		}
 		taskYIELD();
@@ -68,9 +84,6 @@ void BLEProc(void *Param)
  *  Обработка сообщений от BLE
  *  evt - указатель на сообщение
  **************************************************************************************************/
-#define date_ptr ((const struct date_time*)evt->data.evt_gatt_server_attribute_value.value.data)
-#define date_len (evt->data.evt_gatt_server_attribute_value.value.len)
-#define date_offset (evt->data.evt_gatt_server_attribute_value.offset)
 int appHandleEvents(struct gecko_cmd_packet *evt)
 {
   // Пока BLE не готов, сообщени не обрабатываются
@@ -91,13 +104,11 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 
       /* Разрешаем соединения */
       gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable);
-
       break;
 
     case gecko_evt_le_connection_closed_id:	// соединение закрыто со стороны пользователя
       // Разрешаем новые соединения
       gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable);
-
       break;
 	  
 	case gecko_evt_gatt_server_attribute_value_id:	// сообщение об изменении параметра со смартфона
@@ -106,7 +117,6 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				switch (evt->data.evt_gatt_server_attribute_value.att_opcode) {	// селектор типа действия с атрибутом
 					case gatt_write_request:	// запрос на запись
 					/* обновляем дату и время в RTC */
-//						printf("change date: %04d-%02d-%02d %02d:%02d:%02d\r\n", date_ptr->year, date_ptr->month, date_ptr->day, date_ptr->hours, date_ptr->minutes, date_ptr->seconds);
 						ble_update_rtc((const struct date_time*)evt->data.evt_gatt_server_attribute_value.value.data);
 						
 					break;
@@ -147,6 +157,26 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 										evt->data.evt_gatt_server_attribute_value.value.len+1,
 										&evt->data.evt_gatt_server_attribute_value.value)
 						) printf("tankNum write fail\r\n");
+					else tank_change();
+				}
+			break;
+			
+			case gattdb_inn:
+				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
+					if (pdFAIL == ee_write(INN_ADDR,
+										evt->data.evt_gatt_server_attribute_value.value.len+1,
+										&evt->data.evt_gatt_server_attribute_value.value)
+						) printf("inn write fail\r\n");
+					else tank_change();
+				}
+			break;
+			
+			case gattdb_psw:
+				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
+					if (pdFAIL == ee_write(PSW_ADDR,
+										evt->data.evt_gatt_server_attribute_value.value.len+1,
+										&evt->data.evt_gatt_server_attribute_value.value)
+						) printf("psw write fail\r\n");
 					else tank_change();
 				}
 		}

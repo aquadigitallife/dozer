@@ -65,6 +65,8 @@
 // Общая библиотека проекта
 #define USE_CRC16_TABLE
 #include "CRC.h"
+#include "gecko_bglib.h"
+#include "gatt_db.h"
 #include "cJSON.h"
 #include "json_show.h"
 

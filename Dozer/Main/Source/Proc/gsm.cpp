@@ -42,38 +42,69 @@ void tank_change(void)
 	tank_changed = true;
 }
 
+char *read_eeprom_string(uint16_t addr, size_t len)
+{
+	char *str;
+	uint8_t plen;
+	ee_read(addr, 1, &plen);
+	if (plen < (len+1)) {
+		str = (char*)malloc(plen+1);
+		if (str == NULL) return NULL;
+		ee_read(addr+1, plen, str);
+		str[plen] = 0;
+	} else str = NULL;
+	return str;
+}
+
 char *read_inn(void)
 {
+	static const uint8array pinn = { 11 ,"11111111111" };
+	char *inn = read_eeprom_string(INN_ADDR, INN_MAX_LEN);
+	if (inn == NULL) {
+		ee_write(INN_ADDR, pinn.len+1, &pinn);
+		inn = (char*)malloc(pinn.len+1);
+		if (inn == NULL) return NULL;
+		memcpy(inn, &pinn.data, pinn.len);
+		inn[pinn.len] = 0;
+		printf("default inn written\r\n");
+	}
+	return inn;
+/*
 	char *retval;
 	static const char pinn[] = "11111111111";
 	retval = (char*)malloc(sizeof(pinn));
 	if (retval == NULL) return (char*)pinn;
 	memcpy(retval, pinn, sizeof(pinn));
 	return retval;
+*/
 }
 
 char *read_passwd(void)
 {
+	static const uint8array ppass = { 4 ,"demo" };
+	char *psw = read_eeprom_string(PSW_ADDR, PSW_MAX_LEN);
+	if (psw == NULL) {
+		ee_write(PSW_ADDR, ppass.len+1, &ppass);
+		psw = (char*)malloc(ppass.len+1);
+		if (psw == NULL) return NULL;
+		memcpy(psw, &ppass.data, ppass.len);
+		psw[ppass.len] = 0;
+		printf("default passwd written\r\n");
+	}
+	return psw;
+/*
 	char *retval;
 	static const char ppass[] = "demo";
 	retval = (char*)malloc(sizeof(ppass));
 	if (retval == NULL) return (char*)ppass;
 	memcpy(retval, ppass, sizeof(ppass));
 	return retval;
+*/
 }
 
-char *read_tank_num(void)
+portINLINE char *read_tank_num(void)
 {
-	char *cTankNum;
-	uint8_t numlen;
-	ee_read(TANK_NUM_ADDR, 1, &numlen);
-	if (numlen < 51) {
-		cTankNum = (char*)malloc(numlen+1);
-		if (cTankNum == NULL) return NULL;
-		ee_read(TANK_NUM_ADDR+1, numlen, cTankNum);
-		cTankNum[numlen] = 0;
-	} else cTankNum = NULL;
-	return cTankNum;
+	return read_eeprom_string(TANK_NUM_ADDR, TANK_NUM_MAX_LEN);
 }
 
 char *add_http_header(const char *addr, const char *request, const char *token)
@@ -152,7 +183,7 @@ char *https_request(const char *addr, const char *request, const char *token)
 	return data;
 }
 
-BaseType_t get_tank_token(cJSON **tank, char **token)
+BaseType_t get_tank_token(const char *tank_num, cJSON **tank, char **token)
 {
 	char *request, *response;
 	cJSON *jtoken, *jitem;
@@ -166,7 +197,8 @@ BaseType_t get_tank_token(cJSON **tank, char **token)
 	cJSON_AddItemReferenceToObject(json, "INN", cJSON_CreateStringReference(inn));
 	cJSON_AddItemReferenceToObject(json, "Password", cJSON_CreateStringReference(passwd));
 	request = cJSON_PrintUnformatted(json);
-	free(inn); free(passwd);
+	if (inn) free(inn);
+	if (passwd) free(passwd);
 	cJSON_Delete(json);
 	if (request == NULL) return pdFAIL;
 	
@@ -189,21 +221,19 @@ BaseType_t get_tank_token(cJSON **tank, char **token)
 	jtoken = cJSON_GetObjectItemCaseSensitive(json, "Tanks");
 	if (jtoken == NULL) goto error;
 	
-	request = read_tank_num();
-	if (request == NULL) goto error;
-	printf("tank number: %s\r\n", request);
+//	request = read_tank_num();
+	if (tank_num == NULL) goto error;
+	printf("tank number: %s\r\n", tank_num);
 	
 	cJSON_ArrayForEach(jitem, jtoken)
 	{
 		cJSON *ch = cJSON_GetObjectItemCaseSensitive(jitem, "cCodeTank");
 		if (ch == NULL) continue; 
-		if (0 == strcmp(request, ch->valuestring)) {
+		if (0 == strcmp(tank_num, ch->valuestring)) {
 			*tank = cJSON_Duplicate(jitem, 1);
-			free(request);
 			goto good;
 		}
 	}
-	free(request);
 error:
 	cJSON_Delete(json);
 	return pdFAIL;
@@ -320,13 +350,13 @@ BaseType_t get_next_action_from_interval(cJSON *jobj, struct dozer_action *prev,
 			get_sys_date(&now);
 		}
 		cur.actual = 0xFF;
+		printf("next period %02d:%02d:%02d doze: %.3f\r\n", cur.day, cur.hours, cur.minutes, cur.doze);
 	}
-//	printf("action period %02d:%02d:%02d\r\n", cur.day, cur.hours, cur.minutes);
 	memcpy(result, &cur, sizeof(struct dozer_action));
 	return pdPASS;
 }
 
-void https_start(void *Param)
+void httpsProc(void *Param)
 {
 	https_state_enum status;
 
@@ -345,21 +375,49 @@ void https_start(void *Param)
 	
 	while (true) {
 		int tankId;
+		char *tankNum;
+		struct date_time now;
 		printf("connect to server...");
 		if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");
 		printf("done\r\n");
 		
-		while (pdFAIL == get_tank_token(&tank, &token)) {
+		while (true) {
+			tankNum = read_tank_num();
+			if (pdPASS == get_tank_token(tankNum, &tank, &token)) break;
+			if (tankNum) free(tankNum);
 			vTaskDelay(MS_TO_TICK(60000));
 			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
 			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");
 			printf("repeat get_tank_token\r\n");
 		}
+		
+		for (int i = 0; i < 20; i++) {
+			if (is_ble_ready()) break;
+			vTaskDelay(MS_TO_TICK(500));
+		}
+
+		if (is_ble_ready()) {
+			xSemaphoreTake( ble_write_lock, portMAX_DELAY );
+//			printf("ble get\r\n");
+			gecko_cmd_gatt_server_write_attribute_value(gattdb_pool_number, 0x0000, strlen(tankNum), (const uint8_t*)tankNum);
+			free(tankNum);
+			tankNum = read_inn();
+			gecko_cmd_gatt_server_write_attribute_value(gattdb_inn, 0x0000, strlen(tankNum), (const uint8_t*)tankNum);
+			xSemaphoreGive( ble_write_lock );
+//			printf("ble give\r\n");
+		}
+		free(tankNum);
 //		show_json_obj(tank);
 		jobj = cJSON_GetObjectItemCaseSensitive(tank, "nTankId");
 		if (jobj == NULL) {printf("no tank ID found!\r\n"); tankId = 610;}
 		tankId = jobj->valueint;
 		printf("tank ID: %d\r\n", tankId);
+		
+		get_sys_date(&now);
+		next_action.actual = 0;
+		next_action.day = now.day;
+		next_action.hours = now.hours;
+		next_action.minutes = now.minutes;
 		
 		tank_changed = false;
 
@@ -386,7 +444,7 @@ void https_start(void *Param)
 			sscanf(response, "HTTP/1.1 %d OK", &hcode);
 			if (hcode != 200) {
 				free(response);
-				ON_ERROR("http ret: %d\r\n", hcode);
+				ON_ERROR("server error1: %d\r\n", hcode);
 			}
 //			printf("\r\n");
 //			printf("%s", strstr(response, "{"));
@@ -410,9 +468,10 @@ void https_start(void *Param)
 				struct dozer_action action;
 				mode = SHEDULE_MODE;
 				if (pdPASS == get_next_action_from_shedule(jobj, &action)) {
-					if (0 != action_compare(&next_action, &action))
+					if (0 != action_compare(&next_action, &action)) {
 						memcpy(&next_action, &action, sizeof(struct dozer_action));
-					else if (next_action.actual != 0)
+						printf("next shedule %02d:%02d:%02d doze: %.3f\r\n", action.day, action.hours, action.minutes, action.doze);
+					} else if (next_action.actual != 0)
 						memcpy(&next_action, &action, sizeof(struct dozer_action));
 				}
 			}
@@ -430,7 +489,7 @@ void https_start(void *Param)
 
 			if (response != NULL) {
 				sscanf(response, "HTTP/1.1 %d OK", &hcode);
-				if (hcode != 200) printf("server error: %d\r\n", hcode);
+				if (hcode != 200) printf("server error2: %d\r\n", hcode);
 				free(response);
 			} else printf("no response\r\n");
 

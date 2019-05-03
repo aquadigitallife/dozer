@@ -12,6 +12,7 @@ INCDIRS = \
 ../../Header \
 ../../Header/Global \
 ../../Header/System \
+../../Header/BLE \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \
 $(TOPDIR)/Common/Lib/cJSON \

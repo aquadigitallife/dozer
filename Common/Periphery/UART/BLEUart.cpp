@@ -157,6 +157,7 @@ StreamBufferHandle_t InitBLEUart(size_t xBufferSizeBytes)
 */
 void BLEUartTx(uint32_t len, uint8_t *data)
 {
+  while (tx_on) taskYIELD();
   tx_on = true;
   while (!LL_USART_IsActiveFlag_TC(USART3)) taskYIELD();
 

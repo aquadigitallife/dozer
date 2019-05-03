@@ -4,7 +4,7 @@
 
 #include "Global.h"
 
-#define TEST_WITHOUT_WEIGHT
+//#define TEST_WITHOUT_WEIGHT
 
 uint8_t motor1_on = 0;	// флаг-признак включения/выключения процесса рассеивания. 0 - выкл. FFh - вкл.
 uint8_t purge_on = 0;	// совместно с motor1_on флаг-признак включения процесса полной выгрузки (рассеивание выключается оператором)

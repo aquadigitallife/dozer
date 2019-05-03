@@ -11,6 +11,7 @@ INCDIRS = . \
 ../cJSON \
 $(TOPDIR)/Dozer/Main/Header \
 $(TOPDIR)/Dozer/Main/Header/Global \
+$(TOPDIR)/Dozer/Main/Header/BLE \
 $(TOPDIR)/Dozer/Main/Header/System \
 ../../CMSIS \
 ../../STM32F4xx_HAL_Driver/Inc \

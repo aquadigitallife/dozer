@@ -99,7 +99,7 @@ static inline void Init_RTOS()
 	// Обработка сигнала тензодатчика
 	xTaskCreate(AD7799Proc, "", configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_LED, &AD7799TaskHandle);
 	
-	xTaskCreate(https_start, "", configMINIMAL_STACK_SIZE + 500, 0, TASK_PRI_LED, &gsmTaskHandle);
+
 	
 //	xTaskCreate(MenuTaskProc  , cpTASK[2] , configMINIMAL_STACK_SIZE + 200, 0, TASK_PRI_MENU , &MenuTaskHandle);
 //	xTaskCreate(RF_TaskProc   , cpTASK[3] , configMINIMAL_STACK_SIZE + 350, 0, TASK_PRI_RF   , &RF_TaskHandle);

@@ -13,6 +13,7 @@ INCDIRS = \
 . \
 $(TOPDIR)/Dozer/Main/Header \
 $(TOPDIR)/Dozer/Main/Header/Global \
+$(TOPDIR)/Dozer/Main/Header/BLE \
 $(TOPDIR)/Dozer/Main/Header/System \
 ../../Lib \
 ../../Lib/CRC \

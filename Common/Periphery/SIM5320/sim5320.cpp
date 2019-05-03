@@ -63,7 +63,9 @@ void https_state_callback(void *state)
 
 void send_string(void *hdr)
 {
-	char c = (char)fgetc(fd);
+	char c;
+//	printf("%s", (char*)hdr);
+	c = (char)fgetc(fd);
 	if (c != '>') return;
 	fputs((char*)hdr, fd);
 	fgets(answer, sizeof(answer), fd);

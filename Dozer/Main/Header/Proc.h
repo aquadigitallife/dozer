@@ -18,7 +18,8 @@ void BLEUartTx(uint32_t len, uint8_t *data);				// функция передач
 int32_t BLEUartRx(uint32_t len, uint8_t *data);				// функция приёма данных из BLE
 int32_t BLEUartPeek(void);									// функция проверки наличия сообщений от BLE
 /*------------------------------BLE------------------------------*/
-
+extern SemaphoreHandle_t ble_write_lock;
+bool is_ble_ready(void);
 void BLEProc(void *Param);	
 /*------------------------------I2C-----------------------------*/
 void Init_I2C(void);	// инициализация контроллера I2C
@@ -77,8 +78,11 @@ void set_doze(double val);
 #define EEPROM_SIZE	0x2000
 #define TENSO_OFFSET_ADDR	0x0000	// адрес хранения начального смещения АЦП
 #define TANK_NUM_ADDR	0x0008		// 51 байт
-#define INN_ADDR		0x003С		// 13 байт
+#define TANK_NUM_MAX_LEN	50
+#define INN_ADDR		0x003B		// 13 байт
+#define INN_MAX_LEN			12
 #define PSW_ADDR		0x0048
+#define PSW_MAX_LEN			50
 
 BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);		// функция записи в EEPROM
 portINLINE BaseType_t ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
@@ -118,6 +122,6 @@ void GSMUartClean(void);
 #define INTERVAL_MODE	0
 #define SHEDULE_MODE	-1
 void tank_change(void);
-void https_start(void *Param);
+void httpsProc(void *Param);
 /*----------------------------Motors--------------------------------*/
 extern uint8_t motor1_on;

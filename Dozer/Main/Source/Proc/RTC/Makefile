@@ -11,6 +11,7 @@ INCDIRS = \
 ../../../Header \
 ../../../Header/Global \
 ../../../Header/System \
+../../../Header/BLE \
 ../../../Header/RTC \
 $(TOPDIR)/Common/Lib \
 $(TOPDIR)/Common/Lib/CRC \

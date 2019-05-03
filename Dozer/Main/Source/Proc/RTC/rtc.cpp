@@ -209,7 +209,9 @@ void RTCProc(void *Param)
 	next_action.hours = ble.hours;
 	next_action.minutes = ble.minutes;
 	
-	printf("start: %d:%d:%d\r\n", next_action.day, next_action.hours, next_action.minutes);
+	printf("start: %02d:%02d:%02d\r\n", next_action.day, next_action.hours, next_action.minutes);
+	
+	xTaskCreate(httpsProc, "", configMINIMAL_STACK_SIZE + 500, 0, TASK_PRI_LED, &gsmTaskHandle);
 	
 	for (;;) {
 		static uint8_t seconds;	// переменная для определения момента истечения секунды

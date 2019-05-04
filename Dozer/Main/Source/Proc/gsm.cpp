@@ -19,7 +19,7 @@ static const char cmd_get_dispancer[] = "/v1/tank/dispanser";
 static const char cmd_set_dispancer[] = "/v1/tank/update-dispenser";
 
 static FILE *fd;
-static int mode = INTERVAL_MODE;
+static uint32_t mode = UNDEFINED_MODE;
 static bool tank_changed = false;
 
 /*
@@ -253,7 +253,7 @@ BaseType_t get_next_action_from_shedule(cJSON *jobj, struct dozer_action *result
 	
 	cJSON *json = cJSON_GetObjectItemCaseSensitive(jobj, "nDailyDose");
 	if (json == NULL) daily = 0.0;
-	else daily = json->valuedouble;
+	else daily = json->valuedouble*1000.0;
 
 	json = cJSON_GetObjectItemCaseSensitive(jobj, "cSchedule");
 	if (json == NULL) return pdFAIL;
@@ -325,7 +325,7 @@ BaseType_t get_next_action_from_interval(cJSON *jobj, struct dozer_action *prev,
 	
 	json = cJSON_GetObjectItemCaseSensitive(jobj, "nDailyDose");
 	if (json == NULL) daily = 0.0;
-	else daily = json->valuedouble;
+	else daily = json->valuedouble*1000.0;
 	
 	
 	if (mode == INTERVAL_MODE)
@@ -354,6 +354,14 @@ BaseType_t get_next_action_from_interval(cJSON *jobj, struct dozer_action *prev,
 	}
 	memcpy(result, &cur, sizeof(struct dozer_action));
 	return pdPASS;
+}
+
+bool is_action_manual(cJSON *jobj)
+{
+	cJSON *json = cJSON_GetObjectItemCaseSensitive(jobj, "bManual");
+	if (json == NULL) return false;
+	if (json->type == cJSON_True) return true;
+	return false;
 }
 
 void httpsProc(void *Param)
@@ -385,7 +393,7 @@ void httpsProc(void *Param)
 			tankNum = read_tank_num();
 			if (pdPASS == get_tank_token(tankNum, &tank, &token)) break;
 			if (tankNum) free(tankNum);
-			vTaskDelay(MS_TO_TICK(60000));
+			vTaskDelay(MS_TO_TICK(30000));
 			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);
 			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");
 			printf("repeat get_tank_token\r\n");
@@ -463,24 +471,40 @@ void httpsProc(void *Param)
 			
 //			show_json_obj(jobj);
 /*----------------------------Update action------------------------------*/	
-				
-			if (pdFAIL == get_next_action_from_interval(jobj, &next_action, &next_action)) {	// работа по расписанию
-				struct dozer_action action;
-				mode = SHEDULE_MODE;
-				if (pdPASS == get_next_action_from_shedule(jobj, &action)) {
-					if (0 != action_compare(&next_action, &action)) {
-						memcpy(&next_action, &action, sizeof(struct dozer_action));
-						printf("next shedule %02d:%02d:%02d doze: %.3f\r\n", action.day, action.hours, action.minutes, action.doze);
-					} else if (next_action.actual != 0)
-						memcpy(&next_action, &action, sizeof(struct dozer_action));
+			if (is_action_manual(jobj)) {
+				if (mode != MANUAL_MODE) {
+					mode = MANUAL_MODE;
+					taskENTER_CRITICAL();
+					next_action.actual = 0;
+					motor1_on = 0xFF; purge_on = 0xFF;
+					taskEXIT_CRITICAL();
+					printf("motor on\r\n");
+				}
+			} else {
+				if (mode == MANUAL_MODE) {
+					mode = UNDEFINED_MODE;
+					taskENTER_CRITICAL();
+					motor1_on = 0; purge_on = 0;
+					taskEXIT_CRITICAL();
+					printf("motor off\r\n");
+				}
+				if (pdFAIL == get_next_action_from_interval(jobj, &next_action, &next_action)) {	// работа по расписанию
+					struct dozer_action action;
+					mode = SHEDULE_MODE;
+					if (pdPASS == get_next_action_from_shedule(jobj, &action)) {
+						if (0 != action_compare(&next_action, &action)) {
+							memcpy(&next_action, &action, sizeof(struct dozer_action));
+							printf("next shedule %02d:%02d:%02d doze: %.3f\r\n", action.day, action.hours, action.minutes, action.doze);
+						} else if (next_action.actual != 0)
+							memcpy(&next_action, &action, sizeof(struct dozer_action));
+					}
 				}
 			}
-
 //			printf("current time: %d:%d:%d\r\n", now.day, now.hours, now.minutes);
 //			printf("next action: %d:%d:%d doze: %.3f\r\n", next_action.day, next_action.hours, next_action.minutes, next_action.doze);
 /*------------------------------------------------------------------------*/
 			json = cJSON_GetObjectItemCaseSensitive(jobj, "nVolume");
-			cJSON_SetNumberHelper(json, get_weight());
+			cJSON_SetNumberHelper(json, get_weight()/1000.0);
 			
 			request = cJSON_PrintUnformatted(jobj);
 			
@@ -493,7 +517,7 @@ void httpsProc(void *Param)
 				free(response);
 			} else printf("no response\r\n");
 
-			vTaskDelay(MS_TO_TICK(60000));
+			vTaskDelay(MS_TO_TICK(30000));
 			cJSON_Delete(jobj);
 
 			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);

@@ -158,8 +158,11 @@ void Motor0Cycle(void *Param)
 #else
 					i > 100
 #endif
-					)	// проверяем условие прекращения рассеивания
-					if (purge_on == 0) { motor1_on = 0; break; }	// если нет режима опустошения, выключаем рассеивание
+					) {	// проверяем условие прекращения рассеивания
+						taskENTER_CRITICAL();
+						if (purge_on == 0) { motor1_on = 0; taskEXIT_CRITICAL(); break; }	// если нет режима опустошения, выключаем рассеивание
+						taskEXIT_CRITICAL();
+					}
 				vTaskDelay(MS_TO_TICK(100));
 				d += (350 - d)/20;
 #ifdef TEST_WITHOUT_WEIGHT
@@ -284,7 +287,7 @@ void Motor1Proc(void *Param)
 		double sin_var, pre_sin_var;						// переменные для генерации чисел по синусоидальному закону
 		speed = 65535.0;									// начинаем с минимальной скорости
 		StopSM1();											// выключаем движение на минимальной скорости
-		while (motor1_on == 0) vTaskSuspend( NULL );		// ожидаем команды на включение
+		while (motor1_on == 0) taskYIELD();		// ожидаем команды на включение
 		if (get_doze() == 0.0 && purge_on == 0) continue;	// если доза не задана и нет режима опустошения, возвращаемся к ожиданию
 		vTaskResume( Motor0CycleHandle );					// запускаем процесс управления заслонкой
 		StartSM1(1); 										// включаем движение крыльчатки на минимальной скорости

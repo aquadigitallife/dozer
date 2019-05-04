@@ -118,10 +118,11 @@ void GSMUartClean(void);
 #endif
 
 /*-----------------------------GSM----------------------------------*/
-#define EEPROM_TOKEN	0x0008
-#define INTERVAL_MODE	0
-#define SHEDULE_MODE	-1
+#define UNDEFINED_MODE	0
+#define MANUAL_MODE		1
+#define INTERVAL_MODE	2
+#define SHEDULE_MODE	3
 void tank_change(void);
 void httpsProc(void *Param);
 /*----------------------------Motors--------------------------------*/
-extern uint8_t motor1_on;
+extern uint8_t motor1_on, purge_on;

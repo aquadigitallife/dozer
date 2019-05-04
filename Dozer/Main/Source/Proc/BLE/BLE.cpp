@@ -136,12 +136,15 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 			
 			case gattdb_dispancer:	// команда на начало процесса рассеивания
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
-					extern uint8_t motor1_on, purge_on;
-					extern TaskHandle_t Motor1TaskHandle;
 					if (evt->data.evt_gatt_server_attribute_value.value.data[0] != 0) {	// если аттрибут не равен нулю
-						motor1_on = 0xFF; vTaskResume( Motor1TaskHandle );	// запускаем процесс
+						motor1_on = 0xFF;	// запускаем процесс
 					}
-					else {motor1_on = 0; purge_on = 0; LED_SM1_OFF;}	// иначе останавливаем процесс
+					else {
+						taskENTER_CRITICAL();
+						motor1_on = 0; purge_on = 0;
+						taskEXIT_CRITICAL();
+						LED_SM1_OFF;
+					}	// иначе останавливаем процесс
 				}
 			break;
 			

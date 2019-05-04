@@ -15,7 +15,7 @@
 bool isMotorsSuspend(void)
 {
 	return ((eSuspended == eTaskGetState( Motor0CycleHandle )) 
-		 && (eSuspended == eTaskGetState( Motor1TaskHandle )));
+		 && (motor1_on == 0)/*(eSuspended == eTaskGetState( Motor1TaskHandle ))*/);
 }
 
 /*
@@ -26,7 +26,6 @@ bool isMotorsSuspend(void)
 */
 void ButtonsProc(void *Param)
 {
-	extern uint8_t motor1_on, purge_on;	// флаги управления моторами (описание в Motors.cpp)
 	TaskHandle_t Motor0TaskHandle;		// дескриптор процесса управления заслонкой
 	
 	QueueHandle_t SM0_Queue = xQueueCreate ( BUTTON_QUEUE_LENGTH, BUTTON_ITEM_SIZE );	// создаём очередь сообщений от кнопок
@@ -72,8 +71,17 @@ scan_button:
 					if (IS_SM1_TEST) i++; else goto scan_button;
 					if ((i > 2) && (pre_sm1 == 0)) {	// если нажатие подтверждено, и предыдущее состояние = "кнопка не нажата"
 						pre_sm1 = 0xFF;					// предыдущее состояние = "кнопка нажата"
-						if (motor1_on == 0) { motor1_on = 0xFF; purge_on = 0xFF; vTaskResume( Motor1TaskHandle ); LED_SM1_ON; }	// если процесс рассеяния выключен, даём команду на запуск и включаем индикацию
-						else { LED_SM1_OFF;	motor1_on = 0; purge_on = 0; }	// иначе выключаем процесс и сигнализацию
+						if (motor1_on == 0) {	// если процесс рассеяния выключен, даём команду на запуск и включаем индикацию
+							taskENTER_CRITICAL();
+							motor1_on = 0xFF; purge_on = 0xFF;
+							taskEXIT_CRITICAL();
+							LED_SM1_ON;
+						} else {	// иначе выключаем процесс и сигнализацию
+							LED_SM1_OFF;
+							taskENTER_CRITICAL();
+							motor1_on = 0; purge_on = 0;
+							taskEXIT_CRITICAL();
+						}
 						break;
 					}
 				}

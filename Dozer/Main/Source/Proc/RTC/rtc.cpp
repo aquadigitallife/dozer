@@ -227,7 +227,7 @@ void RTCProc(void *Param)
 			if ( is_alarm_time(&next_action, &ble) && (next_action.actual != 0) ) {
 				set_doze(next_action.doze);
 				printf("action on %d:%d doze: %.3f\r\n", next_action.hours, next_action.minutes, next_action.doze);
-				motor1_on = 0xFF; vTaskResume( Motor1TaskHandle );	// запускаем процесс
+				motor1_on = 0xFF;	// запускаем процесс
 				next_action.actual = 0;
 			}
 		}

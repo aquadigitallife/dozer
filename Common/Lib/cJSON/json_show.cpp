@@ -1,7 +1,9 @@
 #include "stdio.h"
 #include "cJSON.h"
 
-
+/*
+Функция печати структуры объекта JSON. Используется для отладки
+*/
 void show_json_obj(const cJSON *jobj)
 {
 	if (jobj == NULL) { printf("jobj is null\r\n"); return; }

@@ -18,9 +18,9 @@ void BLEUartTx(uint32_t len, uint8_t *data);				// функция передач
 int32_t BLEUartRx(uint32_t len, uint8_t *data);				// функция приёма данных из BLE
 int32_t BLEUartPeek(void);									// функция проверки наличия сообщений от BLE
 /*------------------------------BLE------------------------------*/
-extern SemaphoreHandle_t ble_write_lock;
-bool is_ble_ready(void);
-void BLEProc(void *Param);	
+extern SemaphoreHandle_t ble_write_lock;					// мьютекс для исключения одновременного использования функций ble lib из разных потоков
+bool is_ble_ready(void);									// функция проверки готовности ble
+void BLEProc(void *Param);									// поток ожидания и обработки сообщений от BLE
 /*------------------------------I2C-----------------------------*/
 void Init_I2C(void);	// инициализация контроллера I2C
 
@@ -30,32 +30,33 @@ BaseType_t i2c(uint8_t dev, T addr, uint32_t len, const void* data);	// если
 /* Структура даты и времени в модуле BLE */
 struct date_time
 {
-	uint16_t year;
-	uint8_t month;
-	uint8_t day;
-	uint8_t hours;
-	uint8_t minutes;
-	uint8_t seconds;
+	uint16_t year;		// год
+	uint8_t month;		// месяц
+	uint8_t day;		// день
+	uint8_t hours;		// часы
+	uint8_t minutes;	// минуты
+	uint8_t seconds;	// секунды
 } __packed;
 
+// определение структура ближайшего события срабатывания кормушки
 struct dozer_action
 {
-	uint8_t	actual;
-	uint8_t day;
-	uint8_t hours;
-	uint8_t minutes;
-	double	doze;
+	uint8_t	actual;		// флаг актуальности события. 0 - событие уже произошло.
+	uint8_t day;		// день события
+	uint8_t hours;		// час события
+	uint8_t minutes;	// минута события
+	double	doze;		// доза выдачи в этом событии
 };
 
-extern struct dozer_action next_action;
+extern struct dozer_action next_action;	
 
-void ble_update_rtc(const struct date_time *arg);	// функция установки RTC со смартфона
-void get_sys_date(struct date_time *dest);
-int get_minutes(uint8_t hours, uint8_t minutes);
-void add_minutes(struct dozer_action *action, int mins);
-bool is_action_trigged(struct dozer_action *action, struct date_time *now);
-int action_compare(struct dozer_action *act1, struct dozer_action *act2);
-uint8_t day_inc(uint8_t day);
+void ble_update_rtc(const struct date_time *arg);							// функция установки RTC со смартфона
+void get_sys_date(struct date_time *dest);									// функция получения системного времени
+int get_minutes(uint8_t hours, uint8_t minutes);							// функция возвращает количество минут во входных часах и минутах
+void add_minutes(struct dozer_action *action, int mins);					// функция добавляет ко времени события кол-во минут mins
+bool is_action_trigged(struct dozer_action *action, struct date_time *now);	// функция возвращает true когда время action больше времени now
+int action_compare(struct dozer_action *act1, struct dozer_action *act2);	// функция сравнения времени act1 с временем act2
+uint8_t day_inc(uint8_t day);												// функция увеличивает дату на 1 с учётом количества дней в месяцах и високосных годов
 void RTCProc(void *Param);	// процесс выдачи сообщений о текущем времени каждую секунду
 /*------------------------------SPI------------------------------*/
 void start_SPI(void);				// старт SPI-транзакции
@@ -84,7 +85,7 @@ void set_doze(double val);
 #define PSW_ADDR		0x0048
 #define PSW_MAX_LEN			50
 
-BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);		// функция записи в EEPROM
+BaseType_t ee_write(uint16_t addr, uint16_t len, const void *data);				// функция записи в EEPROM
 portINLINE BaseType_t ee_read(uint16_t addr, uint16_t len, const void *data)	// функция чтения из EEPROM
 {
 	return i2c<uint16_t>(0xA1, addr, len, data);
@@ -122,7 +123,7 @@ void GSMUartClean(void);
 #define MANUAL_MODE		1
 #define INTERVAL_MODE	2
 #define SHEDULE_MODE	3
-void tank_change(void);
-void httpsProc(void *Param);
+void tank_change(void);										// функция сигнализирует о смене параметров связи со стороны BLE
+void httpsProc(void *Param);			// поток установки связи и работы с удалённым сервером
 /*----------------------------Motors--------------------------------*/
-extern uint8_t motor1_on, purge_on;
+extern uint8_t motor1_on, purge_on;		// флаги управления выдачей корма.

@@ -55,6 +55,9 @@ __STATIC_INLINE uint8_t bin2bcd(uint16_t arg)
 	return (uint8_t)(((arg/10)<<4) + arg%10);
 }
 
+/*
+	Функция преобразования текущей даты и времени из формата микросхемы в формат системы
+*/
 void get_sys_date(struct date_time *dest)
 {
 	dest->year =	(uint16_t)(2000 + ((rtc.month & 0x80) >> 7)*100 + ((rtc.year & 0xF0) >> 4)*10 + (rtc.year & 0x0F));
@@ -91,37 +94,44 @@ void ble_update_rtc(const struct date_time *arg)
 	next_action.minutes = arg->minutes;
 }
 
-
+/*
+Функция увеличивает дату на 1 с учётом количества дней в месяцах и високосных годов
+*/
 uint8_t day_inc(uint8_t day)
 {
+	int year;
 	uint8_t retval = day;
-	retval++;
-	switch (rtc.month) {
-		case 1:
-		case 3:
-		case 5:
-		case 7:
-		case 8:
-		case 10:
-		case 12:
+	retval++;				// если никаких исключений нет, то просто увеличиваем дату
+	switch (rtc.month) {	// в этих месяцах 31 день
+		case 0x01:
+		case 0x03:
+		case 0x05:
+		case 0x07:
+		case 0x08:
+		case 0x10:
+		case 0x12:
 			if (day == 31) retval = 1;
 			break;
-		case 4:
-		case 6:
-		case 9:
-		case 11:
+		case 0x04:				// в этих месяцах 30 дней
+		case 0x06:
+		case 0x09:
+		case 0x11:
 			if (day == 30) retval = 1;
 			break;
-		case 2:
-			if (rtc.year%4 == 0) {
+		case 0x02:				// а это вообще февраль
+			year = 2000 + ((rtc.month & 0x80) >> 7)*100 + ((rtc.year & 0xF0) >> 4)*10 + (rtc.year & 0x0F);
+			if (year%4 == 0) {		// если год високосный, то 29 дней
 				if (day == 29) retval = 1;
-			} else {
+			} else {					// иначе 28
 				if (day == 28) retval = 1;
 			}
 	}
 	return retval;
 }
 
+/*
+функция возвращает количество минут во входных часах и минутах
+*/
 int get_minutes(uint8_t hours, uint8_t minutes)
 {
 	int retval = 60*hours + minutes;
@@ -129,20 +139,24 @@ int get_minutes(uint8_t hours, uint8_t minutes)
 	return retval;
 }
 
-//void add_minutes(uint8_t *day, uint8_t *hours, uint8_t *minutes, int mins)
+/*
+функция добавляет ко времени события кол-во минут mins
+*/
 void add_minutes(struct dozer_action *action, int mins)
 {
 	uint32_t sum;
 	int pmins = mins;
 	
 	if (pmins > 1440) pmins = 1440;
-	if (pmins == 1440) action->day = day_inc(action->day);
-	sum = 60*(action->hours) + action->minutes + mins;
+	sum = 60*(action->hours) + action->minutes + pmins;
 	if ((sum/60)/24 > 0) action->day = day_inc(action->day);
 	action->hours = (sum/60)%24;
 	action->minutes = sum%60;
 }
 
+/*
+функция возвращает true когда время action больше времени now
+*/
 bool is_action_trigged(struct dozer_action *action, struct date_time *now)
 {
 	if (action->day > now->day) return true;
@@ -153,7 +167,10 @@ bool is_action_trigged(struct dozer_action *action, struct date_time *now)
 	return false;
 }
 
-bool is_alarm_time(struct dozer_action *action, struct date_time *now)
+/*
+функция возвращает true когда время action совпадает со временем now
+*/
+static bool is_alarm_time(struct dozer_action *action, struct date_time *now)
 {
 	if (action->day == now->day)
 		if (action->hours == now->hours)
@@ -161,6 +178,11 @@ bool is_alarm_time(struct dozer_action *action, struct date_time *now)
 	return false;
 }
 
+/*
+функция сравнивает время события act1 со временем события act2.
+Времена этих событий не должны отличаться более чем на сутки,
+иначе правильный результат не гарантирован
+*/
 int action_compare(struct dozer_action *act1, struct dozer_action *act2)
 {
 	if (act1->day == day_inc(act2->day)) return 1;
@@ -224,11 +246,11 @@ void RTCProc(void *Param)
 			get_sys_date(&ble);
 			if (RTC_Queue != NULL) xQueueSendToBack(RTC_Queue, &ble, 0);
 			
-			if ( is_alarm_time(&next_action, &ble) && (next_action.actual != 0) ) {
-				set_doze(next_action.doze);
+			if ( is_alarm_time(&next_action, &ble) && (next_action.actual != 0) ) {	// если наступило время события
+				set_doze(next_action.doze);		// устанавливаем дозу выдачи
 				printf("action on %d:%d doze: %.3f\r\n", next_action.hours, next_action.minutes, next_action.doze);
-				motor1_on = 0xFF;	// запускаем процесс
-				next_action.actual = 0;
+				motor1_on = 0xFF;	// запускаем процесс выдачи
+				next_action.actual = 0;	// помечаем событие не актуальным
 			}
 		}
 		vTaskDelay(MS_TO_TICK(100));	// проверяем секунды каждые 100мс.

@@ -154,7 +154,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				}
 			break;
 			
-			case gattdb_pool_number:
+			case gattdb_pool_number:	// команда на запись номера бассейна
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
 					if (pdFAIL == ee_write(TANK_NUM_ADDR,
 										evt->data.evt_gatt_server_attribute_value.value.len+1,
@@ -164,7 +164,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				}
 			break;
 			
-			case gattdb_inn:
+			case gattdb_inn:	// команда на запись ИНН
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
 					if (pdFAIL == ee_write(INN_ADDR,
 										evt->data.evt_gatt_server_attribute_value.value.len+1,
@@ -174,7 +174,7 @@ int appHandleEvents(struct gecko_cmd_packet *evt)
 				}
 			break;
 			
-			case gattdb_psw:
+			case gattdb_psw:	// команда на запись пароля
 				if (evt->data.evt_gatt_server_attribute_value.att_opcode == gatt_write_request) {	// запрос на запись
 					if (pdFAIL == ee_write(PSW_ADDR,
 										evt->data.evt_gatt_server_attribute_value.value.len+1,

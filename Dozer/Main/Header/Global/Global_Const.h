@@ -37,7 +37,12 @@ const uint32_t FW_VER = 0x03000600UL;
 
 #define LED_SM1_ON            do {GPIOF->BSRR = GPIO_BSRR_BS_8;} while (0)
 #define LED_SM1_OFF           do {GPIOF->BSRR = GPIO_BSRR_BR_8;} while (0)
-
+/*	
+#define LIGHT1_ON			  do {GPIOC->BSRR = GPIO_BSRR_BS_14;} while (0)
+#define LIGHT1_OFF			  do {GPIOC->BSRR = GPIO_BSRR_BR_14;} while (0)
+#define LIGHT2_ON			  do {GPIOC->BSRR = GPIO_BSRR_BS_15;} while (0)
+#define LIGHT2_OFF			  do {GPIOC->BSRR = GPIO_BSRR_BR_15;} while (0)
+*/
 // SPI памяти
 #define FLASH_CS1_UP          do {GPIOD->BSRR = GPIO_BSRR_BS_0;} while (0)
 #define FLASH_CS1_DN          do {GPIOD->BSRR = GPIO_BSRR_BR_0;} while (0)

@@ -176,6 +176,8 @@ static inline void Init_GPIO()
 	LED_FLASH_BUSY_OFF;
 	LED_SM0_OFF;
 	LED_SM1_OFF;
+	DO_CTRL1_OFF;
+	DO_CTRL2_ON;
 
 	// Переводим ноги в безопасное состояние
 	FLASH_DESELECT;
@@ -265,7 +267,7 @@ static inline void Init_GPIO()
 static inline void Init_Timers()
 {
 	// Настройка таймеров
-	
+	test_Timer = xTimerCreate("", MS_TO_TICK(60000), pdFALSE, NULL, test_timer_callback);	
 	// Системный таймер иницализируется RTOS
 }
 

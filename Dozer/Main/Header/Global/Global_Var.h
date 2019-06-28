@@ -19,6 +19,7 @@ GL_EXP TaskHandle_t LED_TaskHandle;
 GL_EXP TaskHandle_t FlashTaskHandle;
 GL_EXP TaskHandle_t ButtonsTaskHandle;
 GL_EXP TaskHandle_t Motor0CycleHandle;
+GL_EXP TaskHandle_t Motor0TestHandle;
 GL_EXP TaskHandle_t Motor1TaskHandle;
 GL_EXP TaskHandle_t BLETaskHandle;
 GL_EXP TaskHandle_t RTCTaskHandle;
@@ -38,3 +39,6 @@ GL_EXP QueueHandle_t AD7799_Queue;
 GL_EXP SemaphoreHandle_t FlashExist_Sem; // Сигнал о корректной инициализации flash памяти
 
 ///////////////////////////////////////////////////////////////////////////////
+
+
+GL_EXP TimerHandle_t test_Timer;

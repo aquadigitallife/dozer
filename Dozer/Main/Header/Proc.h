@@ -127,3 +127,5 @@ void tank_change(void);										// функция сигнализирует о
 void httpsProc(void *Param);			// поток установки связи и работы с удалённым сервером
 /*----------------------------Motors--------------------------------*/
 extern uint8_t motor1_on, purge_on;		// флаги управления выдачей корма.
+
+void test_timer_callback( TimerHandle_t timer );

@@ -37,11 +37,26 @@ void LED_TaskProc(void *Param)
 	{
 		ResetWatchdog(WDG_Time, WDG_TASK_LED, MS_TO_TICK(32), 2, true);
 		
-		if (Time < (ONE_SEC / 2))
+		if (Time < (ONE_SEC / 2)) {
 			LED_STATE_ON;
-		else
+			if (motor1_on) {
+				DO_CTRL1_OFF;
+				DO_CTRL2_OFF;
+			} else {
+				DO_CTRL1_OFF;
+				DO_CTRL2_ON;
+			}
+		}
+		else {
 			LED_STATE_OFF;
-
+			if (motor1_on) {
+				DO_CTRL1_ON;
+				DO_CTRL2_ON;
+			} else {
+				DO_CTRL1_OFF;
+				DO_CTRL2_ON;
+			}
+		}
 		vTaskDelay(1);
 	}
 }

@@ -71,10 +71,11 @@ scan_button:
 					if (IS_SM1_TEST) i++; else goto scan_button;
 					if ((i > 2) && (pre_sm1 == 0)) {	// если нажатие подтверждено, и предыдущее состояние = "кнопка не нажата"
 						pre_sm1 = 0xFF;					// предыдущее состояние = "кнопка нажата"
-						if (motor1_on == 0) {	// если процесс рассеяния выключен, даём команду на запуск и включаем индикацию
+						if (motor1_on == 0 && purge_on == 0) {	// если процесс рассеяния выключен, даём команду на запуск и включаем индикацию
 							taskENTER_CRITICAL();
 							motor1_on = 0xFF; purge_on = 0xFF;
 							taskEXIT_CRITICAL();
+							 xTimerStart(test_Timer, MS_TO_TICK(8));
 							LED_SM1_ON;
 						} else {	// иначе выключаем процесс и сигнализацию
 							LED_SM1_OFF;
@@ -94,4 +95,14 @@ scan_button:
 			}
 		}
 	}
+}
+
+void test_timer_callback( TimerHandle_t timer )
+{
+	UBaseType_t saved_isr = taskENTER_CRITICAL_FROM_ISR();
+	if (purge_on) {
+		motor1_on = 0xFF;
+		xTimerStart(timer, MS_TO_TICK(8));
+	}
+	taskEXIT_CRITICAL_FROM_ISR(saved_isr);
 }

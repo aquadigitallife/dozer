@@ -153,15 +153,13 @@ void Motor0Cycle(void *Param)
 			while (motor1_on != 0) {			// пока не выключили рассеивание
 				if (
 #ifndef TEST_WITHOUT_WEIGHT
-					((wgt_start - get_doze() + d) > get_weight()) 
+					((wgt_start - get_doze()/* + d*/) > get_weight()) 
 					|| get_weight() < 30
 #else
 					i > 100
 #endif
 					) {	// проверяем условие прекращения рассеивания
-						taskENTER_CRITICAL();
-						if (purge_on == 0) { motor1_on = 0; taskEXIT_CRITICAL(); break; }	// если нет режима опустошения, выключаем рассеивание
-						taskEXIT_CRITICAL();
+						motor1_on = 0; break;	// если нет режима опустошения, выключаем рассеивание
 					}
 				vTaskDelay(MS_TO_TICK(100));
 				d += (350 - d)/20;
@@ -174,6 +172,29 @@ void Motor0Cycle(void *Param)
 	}
 }
 
+void Motor0Test(void *Param)
+{
+	while (1) {
+
+		StopSM0();								// останавливаем двигатель
+		vTaskSuspend( NULL );					// ожидаем включения крыльчатки (пробуждения от процесса Motor1Proc)
+		for (int i = 0; i < 10; i++) {			// после включения крыльчатки ожидаем 25 секунд разгон крыльчатки
+			vTaskDelay(MS_TO_TICK(1000));
+			if (motor1_on == 0) break;
+		}
+		if (motor1_on != 0) {					// если к этому времени не выключили процесс кнопкой
+			int i = 0;
+			StartSM0(1);						// включаем ротор
+			while (motor1_on != 0) {			// пока не выключили рассеивание
+				if ( i > 5 ) {	// проверяем условие прекращения рассеивания
+					motor1_on = 0; break;	// если нет режима опустошения, выключаем рассеивание
+				}
+				vTaskDelay(MS_TO_TICK(50));
+				i++;
+			}
+		}
+	}
+}
 /*-------------------Управление крыльчаткой--------------------*/
 /*
 	Функция задания скорости вращения двигателя крыльчатки.
@@ -280,16 +301,20 @@ double speed = 65535.0;	// переменная для хранения дели
 void Motor1Proc(void *Param)
 {
 	/* создаём процесс управления заслонкой */
-	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, &motor1_on, TASK_PRI_LED, &Motor0CycleHandle);
+	xTaskCreate(Motor0Cycle, "" , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_LED, &Motor0CycleHandle);
+	xTaskCreate(Motor0Test, "" , configMINIMAL_STACK_SIZE + 400, 0, TASK_PRI_LED, &Motor0TestHandle);
 	
 	InitSM1(65535);	// инициализируем контроллер ШД крыльчатки
 	while (1) {
 		double sin_var, pre_sin_var;						// переменные для генерации чисел по синусоидальному закону
+//		LIGHT1_OFF;
 		speed = 65535.0;									// начинаем с минимальной скорости
 		StopSM1();											// выключаем движение на минимальной скорости
 		while (motor1_on == 0) taskYIELD();					// ожидаем команды на включение
 		if (get_doze() == 0.0 && purge_on == 0) continue;	// если доза не задана и нет режима опустошения, возвращаемся к ожиданию
-		vTaskResume( Motor0CycleHandle );					// запускаем процесс управления заслонкой
+//		LIGHT1_ON;
+		if (purge_on) vTaskResume( Motor0TestHandle );
+		else vTaskResume( Motor0CycleHandle );					// запускаем процесс управления заслонкой
 		StartSM1(1); 										// включаем движение крыльчатки на минимальной скорости
 
 		for (;;) {											// цикл наращивания скорости по экспоненте

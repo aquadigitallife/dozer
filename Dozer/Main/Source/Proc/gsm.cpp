@@ -4,9 +4,7 @@
 
 #include "Global.h"
 
-#define ON_ERROR(...) do { \
-goto network_close; \
-} while(0)
+#define ON_ERROR(...) do { printf(__VA_ARGS__); goto network_close; } while(0)
 
 //printf(__VA_ARGS__);
 
@@ -405,6 +403,7 @@ void httpsProc(void *Param)
 	cJSON *jobj = NULL;			// JSON-объекты разного назначения
 
 	fd = gsm_init();			// Инициализируем GSM-модем
+	while (true) {
 	printf("opening network...");
 	if (at_cmd(NULL, NULL, "%s", at_cmd_https_start)) ON_ERROR("error!\r\n");	// инициализируем https-стек
 	printf("done\r\n");
@@ -413,20 +412,8 @@ void httpsProc(void *Param)
 		int tankId;				// идентификатор бассейна
 		char *tankNum;			// строка номера бассейна
 		struct date_time now;	// текущие дата и время
-		printf("connect to server...");
-		if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");	// соединяемся с сервером
-		printf("done\r\n");
-		
-		while (true) {			// цикл повторяется, пока пользователь не введёт правильные ИНН, пароль и номер бассейна
-			tankNum = read_tank_num();												// читаем номер бассейна из eeprom
-			if (pdPASS == get_tank_token(tankNum, &tank, &token)) break;			// авторизуемся на сервере, получаем токен и информацию о бассейне. Если успешно - выходим из цикла
-			if (tankNum) free(tankNum);
-			vTaskDelay(MS_TO_TICK(30000));											// ждём 30 секунд
-			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);		// проверяем статус соединения
-			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");	// если соединение оборвано, переподключаемся
-			printf("repeat get_tank_token\r\n");									// иначе пытаемся повторно авторизоваться
-		}
-		
+
+		tankNum = read_tank_num();												// читаем номер бассейна из eeprom
 		for (int i = 0; i < 20; i++) {							// ждём готовности BLE
 			if (is_ble_ready()) break;
 			vTaskDelay(MS_TO_TICK(500));
@@ -445,6 +432,40 @@ void httpsProc(void *Param)
 			xSemaphoreGive( ble_write_lock );
 		}
 		if (tankNum) free(tankNum);
+
+		printf("connect to server...");
+		if (at_cmd(NULL, NULL, "%s\"%s\",%d\r\n", at_cmd_https_open, https_host, port)) ON_ERROR("error!\r\n");	// соединяемся с сервером
+		printf("done\r\n");
+		
+		while (true) {			// цикл повторяется, пока пользователь не введёт правильные ИНН, пароль и номер бассейна
+			tankNum = read_tank_num();												// читаем номер бассейна из eeprom
+			if (pdPASS == get_tank_token(tankNum, &tank, &token)) break;			// авторизуемся на сервере, получаем токен и информацию о бассейне. Если успешно - выходим из цикла
+			if (tankNum) free(tankNum);
+			vTaskDelay(MS_TO_TICK(30000));											// ждём 30 секунд
+			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);		// проверяем статус соединения
+			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");	// если соединение оборвано, переподключаемся
+			printf("repeat get_tank_token\r\n");									// иначе пытаемся повторно авторизоваться
+		}
+/*		
+		for (int i = 0; i < 20; i++) {							// ждём готовности BLE
+			if (is_ble_ready()) break;
+			vTaskDelay(MS_TO_TICK(500));
+		}
+
+		if (is_ble_ready()) {									// если BLE готово...
+			xSemaphoreTake( ble_write_lock, portMAX_DELAY );
+			if (tankNum) {
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_pool_number, 0x0000, strlen(tankNum), (const uint8_t*)tankNum);	// ...показываем смартфону запрограммированный номер басейна
+				free(tankNum);
+			}
+			tankNum = read_inn();
+			if (tankNum)
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_inn, 0x0000, strlen(tankNum), (const uint8_t*)tankNum);			// ... и ИНН
+
+			xSemaphoreGive( ble_write_lock );
+		}
+		if (tankNum) free(tankNum);
+*/
 //		show_json_obj(tank);
 
 		// читаем идентификатор бассейна
@@ -549,19 +570,25 @@ void httpsProc(void *Param)
 			} else printf("no response\r\n");
 
 
-			vTaskDelay(MS_TO_TICK(30000));											// пауза 30 секунд
+			vTaskDelay(MS_TO_TICK(20000));											// пауза 30 секунд
 
 			at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);		// если соединение разорвано
 			if (status != HTTPS_STATE_OPENED_SESSION) ON_ERROR("peer closed\r\n");	// восстанавливаем
 		}
 network_close:
 		if (tank != NULL) { free(tank); tank = NULL; } if (token != NULL) { free(token); token = NULL; }	// освобождаем память
-//		printf("close network...");
+		printf("checking status network\r\n");
 		at_cmd(https_state_callback, &status, "%s\n", at_cmd_https_state);			// проверяем статус соединения
 
-		if (status == HTTPS_STATE_OPENED_SESSION) at_cmd(NULL, NULL, "%s", at_cmd_https_close);	// если соединение есть, разрываем
+		if (status == HTTPS_STATE_OPENED_SESSION) {		// если соединение есть, разрываем
+			printf("dozer closing server\r\n");
+			if (at_cmd(NULL, NULL, "%s", at_cmd_https_close)) {printf("can't close server\r\n");goto hard_damage;}
+			printf("server closed\r\n");
+		}
 	}
-	at_cmd(NULL, NULL, "%s", at_cmd_https_stop);
+hard_damage:
+	if (at_cmd(NULL, NULL, "%s", at_cmd_https_stop)) printf("can't close http\r\n");
+	}
 //	printf("done\r\n");
 	vTaskDelete(NULL);
 }

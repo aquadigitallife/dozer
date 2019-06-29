@@ -34,14 +34,18 @@ format... - AT-команда в printf-стиле
 */
 bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 {
+//	bool dbg = false;
 	va_list args;
 	va_start(args, format);
 	
 	vfprintf(fd, format, args);			// отправляем AT-команду в модем
 	va_end(args);
+	
+//	if (callback == send_string) {vprintf(format, args); dbg = true;}
 
 	do {
 		fgets(answer, sizeof(answer), fd);	// принимаем ответ модема
+//		if (dbg) printf(answer);
 	} while (strcmp(answer, "ATE0\r\r\n") == 0
 	|| strcmp(answer, "+STIN: 25\r\n") == 0
 	|| strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0);	// пропускаем эхо от команды ATE0, пропускаем +STIN и RECV EVENT
@@ -50,9 +54,10 @@ bool at_cmd(void (*callback)(void *), void *param, const char *format, ...)
 	if (strcmp(answer, "\r\n") != 0) return true;		// иначе модем возвращает данные обрамлённые \r\n...\r\n
 	if (callback) callback(param);						// обрабатываем ответ модема (возможно с отправкой данных)
 	fgets(answer, sizeof(answer), fd);					// принимаем завершающий ответ
+//	if (dbg) printf(answer);
 	while (strcmp(answer, "+STIN: 25\r\n") == 0 || strcmp(answer, "+CHTTPS: RECV EVENT\r\n") == 0) {
-		fgets(answer, sizeof(answer), fd);
-		fgets(answer, sizeof(answer), fd);
+		fgets(answer, sizeof(answer), fd); //if (dbg) printf(answer);
+		fgets(answer, sizeof(answer), fd);// if (dbg) printf(answer);
 	}													// пропускаем асинхронные сообщения +STIN, RECV EVENT
 	return (strcmp(answer, answ_ok) != 0);				// если ответ не равен OK - возвращаем плохое завершение
 }
@@ -88,9 +93,10 @@ void send_string(void *hdr)
 	char c;
 //	printf("%s", (char*)hdr);
 	c = (char)fgetc(fd);				// после отправки команды ожидаем признак
-	if (c != '>') return;				// запроса данных
+	if (c != '>') {printf("bad cursor %c\r\n", c); return;}				// запроса данных
 	fputs((char*)hdr, fd);				// отправляем данные
 	fgets(answer, sizeof(answer), fd);	// принимаем ответ
+//	printf(answer);
 }
 
 /*

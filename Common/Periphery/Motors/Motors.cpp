@@ -153,7 +153,7 @@ void Motor0Cycle(void *Param)
 			while (motor1_on != 0) {			// пока не выключили рассеивание
 				if (
 #ifndef TEST_WITHOUT_WEIGHT
-					((wgt_start - get_doze()/* + d*/) > get_weight()) 
+					((wgt_start - get_doze() + d) > get_weight()) 
 					|| get_weight() < 30
 #else
 					i > 100
@@ -162,7 +162,7 @@ void Motor0Cycle(void *Param)
 						motor1_on = 0; break;	// если нет режима опустошения, выключаем рассеивание
 					}
 				vTaskDelay(MS_TO_TICK(100));
-				d += (350 - d)/20;
+				d += (50 - d)/20;		// 350
 #ifdef TEST_WITHOUT_WEIGHT
 				(void)wgt_start;
 				i++;

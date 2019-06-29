@@ -1,3 +1,15 @@
 #! /bin/sh
 
-git remote set-url origin https://$1:x-oauth-basic@github.com/fiscalcraft/dozer.git
+HSTR=$(git remote get-url origin | cut -d: -f1)
+TSTR=$(git remote get-url origin | cut -d: -f3)
+
+if [ "$TSTR" = "" ]; then
+	TSTR=$(git remote get-url origin | cut -d: -f2 | tail -c+3)
+	MSTR=://$1:x-oauth-basic@
+else
+	MSTR=://$1:
+fi
+
+git remote set-url origin $HSTR$MSTR$TSTR
+
+echo token updated

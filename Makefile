@@ -1,42 +1,42 @@
 TOPDIR = .
 
-SUBDIRS = Common/CMSIS
-SUBDIRS += Common/STM32F4xx_HAL_Driver/Src
-SUBDIRS += Common/FreeRTOS/V10.1.1
-SUBDIRS += Common/Lib/Tools
-SUBDIRS += Common/Lib/CRC
-SUBDIRS += Common/Lib/cJSON
-SUBDIRS += Common/Periphery/EFlash
-SUBDIRS += Common/Periphery/Motors
-SUBDIRS += Common/Periphery/UART
-SUBDIRS += Common/Periphery/I2C
-SUBDIRS += Common/Periphery/SPI
-SUBDIRS += Common/Periphery/SIM5320
-SUBDIRS += Common/System
-SUBDIRS += Dozer/Main/Source
+SUBDIRS = Common/CMSIS \
+	Common/STM32F4xx_HAL_Driver/Src \
+	Common/FreeRTOS/V10.1.1 \
+	Common/Lib/Tools \
+	Common/Lib/CRC \
+	Common/Lib/cJSON \
+	Common/Periphery/EFlash \
+	Common/Periphery/Motors \
+	Common/Periphery/UART \
+	Common/Periphery/I2C \
+	Common/Periphery/SPI \
+	Common/Periphery/SIM5320 \
+	Common/System \
+	Dozer/Main/Source
 	
-CSRCS =
+include make/toolchain.mk
 
-CXXSRCS =
-
-GLOBAL_LDFLAGS = -z max-page-size=4096 -nostartfiles --gc-sections
-
+OBJDIR = $(TOPDIR)/.obj
 LINKER_SCRIPT = STM32F437GTx_FLASH.ld
 
 OPENOCD_DIR = /c/openocd
 OPENOCD = $(OPENOCD_DIR)/bin/openocd
 OPENOCD_SCRIPTS_DIR = $(OPENOCD_DIR)/share/openocd/scripts
 
-dozer.elf: target
+all: dozer.elf
+
+include make/recurse.mk
+
+dozer.elf: $(OBJS)
 	@echo "	LD	$@"
-	@$(SIZE) -t --common $(sort $(wildcard .obj/*.o))
-	@$(LD) $(GLOBAL_LDFLAGS) -T $(LINKER_SCRIPT) $(wildcard .obj/*.o) -L$(LIBCDIR) -L$(LIBGCCDIR) -lc -lgcc -Map=$(basename $@).map -o $@
+	@$(SIZE) -t --common $(sort $^)
+	@$(LD) $(LDFLAGS) -T $(LINKER_SCRIPT) $^ -L$(LIBCDIR) -L$(LIBGCCDIR) -lc -lgcc -Map=$(basename $@).map -o $@
 
 debug: dozer.elf
 	@$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset halt" &
 	sleep 3
 	$(GDB) -q -ex 'target remote localhost:3333' $<
-#	$(shell kill $(ps | grep openocd | sed 's/\s\+/ /g' | cut -d' ' -f2))
 
 upload: dozer.elf
 	@$(OBJCOPY) -O binary $< $(basename $<).bin
@@ -60,15 +60,10 @@ flash:
 ocd_reset:
 	$(OPENOCD) -s $(OPENOCD_SCRIPTS_DIR) -f ./openocd/stm32f4_stlinkv2_mini.cfg -c init -c "reset run" -c exit
 
-all: dozer.elf
 
 clean:
-	@rm -rf .obj/* *.elf *.bin *.map target
+	@rm -rf $(OBJDIR)/* *.elf *.bin *.map
 
 distclean: clean
-	@rm -rf .obj
+	@rm -rf $(OBJDIR)
 
-include $(TOPDIR)/common.mk
-
-LIBGCCDIR := $(dir $(shell $(CC) $(CFLAGS) -print-libgcc-file-name))
-LIBCDIR := $(dir $(shell $(CC) $(CFLAGS) -print-file-name=libc.a))

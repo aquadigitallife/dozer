@@ -2,7 +2,7 @@
 ПО контроллера рыбной кормушки
 ## Порядок установки инструментария для сборки
 1. Устанавливаем GNU Arm Embedded Toolchain:
-   - Загружаем файл gcc-arm-none-eabi-8-2018-q4-major-win32.exe со страницы: [ссылка](https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads)
+   - Загружаем файл gcc-arm-none-eabi-8-2018-q4-major-win32.exe со страницы: [ссылка](https://developer.arm.com/-/media/Files/downloads/gnu-rm/8-2018q4/gcc-arm-none-eabi-8-2018-q4-major-win32.exe?revision=ac917577-a723-4619-b2f0-86a551638834?product=GNU%20Arm%20Embedded%20Toolchain,32-bit,,Windows,8-2018-q4-major)
    - Запускаем загруженный установщик и устанавливаем тулчейн в папку c:/gnuarm
 2. Устанавливаем MSYS2:
    - Загружаем установщик для вашей системы (32 или 64 бит) со страницы http://www.msys2.org/
